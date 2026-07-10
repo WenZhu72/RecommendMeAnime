@@ -1,16 +1,11 @@
 export type Anime = {
   id: number;
-  title: {
-    romaji?: string;
-    english?: string;
-    native?: string;
-  };
+  title: string;
+  romajiTitle?: string;
   description?: string;
-  coverImage?: {
-    large?: string;
-    medium?: string;
-  };
+  coverImage?: string;
   averageScore?: number;
+  genres: string[];
   episodes?: number;
-  status?: string;
+  chapters?: number;
 };
