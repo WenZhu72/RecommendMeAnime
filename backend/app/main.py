@@ -62,4 +62,23 @@ def search_media(query: str, media_type: str = "ANIME"):
     if response.status_code != 200:
         raise HTTPException(status_code=500, detail="Failed to fetch data from AniList")
 
-    return response.json()
+    data = response.json()
+
+    media = data["data"]["Page"]["media"]
+
+    results = []
+
+    for item in media:
+        results.append({
+            "id": item["id"],
+            "title": item["title"]["english"] or item["title"]["romaji"],
+            "romajiTitle": item["title"]["romaji"],
+            "description": item["description"],
+            "coverImage": item["coverImage"]["large"],
+            "averageScore": item["averageScore"],
+            "genres": item["genres"],
+            "episodes": item["episodes"],
+            "chapters": item["chapters"],
+        })
+
+    return results
