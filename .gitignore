@@ -26,6 +26,7 @@ share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+.agents
 MANIFEST
 
 # PyInstaller
@@ -222,3 +223,15 @@ __marimo__/
 # environment
 
 !.env.example
+
+# Project runtime artefacts and local configuration
+.env.local
+.env.*.local
+backend/.env
+frontend/.env.local
+node_modules/
+.next/
+coverage/
+*.pyc
+dist/
+build/

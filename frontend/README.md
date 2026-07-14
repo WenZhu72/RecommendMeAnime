@@ -1,36 +1,57 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# RecommendMeAnime frontend
 
-## Getting Started
+The Next.js application for browsing anime, saving a local watchlist, and submitting a temporary recommendation questionnaire. It never communicates with AniList from the browser or Next.js server components; all anime data comes from the FastAPI API.
 
-First, run the development server:
+## Setup
+
+```bash
+cd frontend
+cp .env.example .env.local
+npm install
+npm run dev
+```
+
+Set the API base URL in `.env.local`:
+
+```env
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+```
+
+Start the backend before loading data pages. See the [root deployment guide](../README.md) for setup, environment variables, and Swagger documentation.
+
+## Commands
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run lint
+npm run typecheck
+npm run build
+npm run start
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Data flow
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```text
+User searches for an anime
+→ Next.js calls FastAPI
+→ FastAPI queries AniList
+→ FastAPI normalises the response
+→ Next.js renders the results
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The typed REST client is in `src/lib/api/`. It uses `NEXT_PUBLIC_API_BASE_URL` for both server-rendered pages and browser-side recommendation requests.
 
-## Learn More
+## Routes
 
-To learn more about Next.js, take a look at the following resources:
+| Route | Purpose |
+| --- | --- |
+| `/` | Landing page with trending and popular anime |
+| `/browse` | Trending, popular, top-rated, and filtered browsing |
+| `/search?q=naruto` | URL-driven FastAPI title search |
+| `/anime/[id]` | Detailed anime information and related anime |
+| `/recommend` | Preference questionnaire |
+| `/recommend/results` | FastAPI-backed temporary recommendations |
+| `/watchlist` | Browser-local saved anime |
+| `/about` | Project explanation |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The watchlist intentionally uses browser local storage only. It has no account or database support yet.
