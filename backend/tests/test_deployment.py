@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 from app.api.dependencies import get_anilist_client
 from app.clients.anilist import AniListClient
 from app.core.config import get_settings
-from app.core.exceptions import AniListResponseError, AniListTimeoutError
+from app.core.exceptions import AniListResponseError, AniListTimeoutError, AniListUnavailableError
 from app.main import create_app
 
 
@@ -74,6 +74,13 @@ async def _call_list_media(handler: Callable[[httpx.Request], httpx.Response]) -
         await client.list_media(page=1, per_page=1)
 
 
+async def _call_get_media(handler: Callable[[httpx.Request], httpx.Response]) -> dict[str, object] | None:
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(base_url="https://anilist.test", transport=transport) as http_client:
+        client = AniListClient(http_client, cache_ttl_seconds=0)
+        return await client.get_media(999999999)
+
+
 def test_anilist_timeout_is_classified_for_a_gateway_timeout() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         raise httpx.ReadTimeout("upstream timeout", request=request)
@@ -95,6 +102,25 @@ def test_anilist_unusable_upstream_responses_are_not_exposed(
 ) -> None:
     with pytest.raises(AniListResponseError):
         asyncio.run(_call_list_media(handler))
+
+
+def test_anilist_missing_detail_is_classified_as_not_found() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            404,
+            request=request,
+            json={"errors": [{"message": "Not Found.", "status": 404}]},
+        )
+
+    assert asyncio.run(_call_get_media(handler)) is None
+
+
+def test_non_graphql_upstream_404_is_not_misclassified_as_a_missing_anime() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(404, request=request, json={"detail": "Route does not exist."})
+
+    with pytest.raises(AniListResponseError):
+        asyncio.run(_call_get_media(handler))
 
 
 class FakeAniListClient:
@@ -120,9 +146,26 @@ class FailingAniListClient:
         raise self.error
 
 
+class DetailAniListClient:
+    async def get_media(self, anime_id: int) -> dict[str, object] | None:
+        if anime_id != 21:
+            return None
+        return {
+            "id": 21,
+            "title": {"english": "ONE PIECE", "romaji": "ONE PIECE", "native": "ONE PIECE"},
+            "description": "A pirate adventure.",
+            "coverImage": {"large": "https://s4.anilist.co/example.jpg"},
+            "genres": ["Action", "Adventure"],
+            "episodes": 1140,
+            "relations": {"nodes": []},
+            "recommendations": {"nodes": []},
+        }
+
+
 @pytest.mark.parametrize(
     ("upstream_error", "expected_status"),
     [
+        (AniListUnavailableError(), 503),
         (AniListTimeoutError(), 504),
         (AniListResponseError(), 502),
     ],
@@ -179,3 +222,43 @@ def test_invalid_search_parameters_are_stable_and_frontend_response_is_compatibl
         ],
         "pageInfo": {"currentPage": 1, "hasNextPage": False, "lastPage": 1, "perPage": 1, "total": 1},
     }
+
+
+def test_anime_detail_response_is_frontend_compatible_and_missing_anime_is_404() -> None:
+    application = create_app(get_settings({}))
+    application.dependency_overrides[get_anilist_client] = lambda: DetailAniListClient()
+
+    with TestClient(application) as client:
+        found = client.get("/api/anime/21")
+        missing = client.get("/api/anime/999999999")
+
+    assert found.status_code == 200
+    assert found.json() == {
+        "id": 21,
+        "title": "ONE PIECE",
+        "titles": {"english": "ONE PIECE", "romaji": "ONE PIECE", "native": "ONE PIECE"},
+        "description": "A pirate adventure.",
+        "coverImage": "https://s4.anilist.co/example.jpg",
+        "bannerImage": None,
+        "averageScore": None,
+        "meanScore": None,
+        "popularity": None,
+        "genres": ["Action", "Adventure"],
+        "format": None,
+        "status": None,
+        "episodes": 1140,
+        "duration": None,
+        "season": None,
+        "seasonYear": None,
+        "startDate": None,
+        "endDate": None,
+        "studios": [],
+        "source": None,
+        "countryOfOrigin": None,
+        "synonyms": [],
+        "siteUrl": None,
+        "relations": [],
+        "recommendations": [],
+    }
+    assert missing.status_code == 404
+    assert missing.json() == {"detail": "Anime not found."}

@@ -2,12 +2,14 @@
   "name": "frontend",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --test src/lib/description-format.test.mjs"
   },
   "dependencies": {
     "clsx": "^2.1.1",

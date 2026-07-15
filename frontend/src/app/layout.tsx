@@ -7,7 +7,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: { default: "RecommendMeAnime", template: "%s | RecommendMeAnime" },
-  description: "Discover anime with a simple, personal recommendation questionnaire.",
+  description: "Browse anime, search the AniList catalogue, and keep a watchlist in this browser.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

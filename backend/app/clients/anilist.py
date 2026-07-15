@@ -51,6 +51,30 @@ def _as_mapping(value: object) -> Mapping[str, object] | None:
     return value if isinstance(value, Mapping) else None
 
 
+def _is_missing_media_response(response: httpx.Response) -> bool:
+    """Recognise AniList's GraphQL payload for an absent ``Media(id: ...)``.
+
+    A generic HTTP 404 can also be caused by a bad upstream URL or proxy. Only
+    AniList's structured GraphQL error is an expected missing anime.
+    """
+
+    if response.status_code != 404:
+        return False
+    try:
+        payload: object = response.json()
+    except ValueError:
+        return False
+    root = _as_mapping(payload)
+    errors = root.get("errors") if root else None
+    return isinstance(errors, list) and any(
+        (error := _as_mapping(item))
+        and error.get("status") == 404
+        and isinstance(error.get("message"), str)
+        and error["message"].strip().casefold() == "not found."
+        for item in errors
+    )
+
+
 def build_page_query_and_variables(
     *,
     page: int,
@@ -146,7 +170,9 @@ class AniListClient:
         self,
         query: str,
         variables: Mapping[str, object],
-    ) -> Mapping[str, object]:
+        *,
+        return_none_on_not_found: bool = False,
+    ) -> Mapping[str, object] | None:
         cache_key: str | None
         try:
             cache_key = self._cache_key(query, variables)
@@ -159,13 +185,21 @@ class AniListClient:
 
         try:
             response = await self._client.post("", json={"query": query, "variables": variables})
-            response.raise_for_status()
         except httpx.TimeoutException as error:
             logger.warning("AniList request timed out: %s", error)
             raise AniListTimeoutError from error
         except httpx.RequestError as error:
             logger.warning("AniList request failed: %s", error)
             raise AniListUnavailableError from error
+
+        if return_none_on_not_found and _is_missing_media_response(response):
+            # AniList represents a missing Media(id: ...) as a GraphQL HTTP 404.
+            # This is an expected absence for the detail endpoint, not an upstream outage.
+            logger.info("AniList did not find anime id %s", variables.get("id"))
+            return None
+
+        try:
+            response.raise_for_status()
         except httpx.HTTPStatusError as error:
             logger.warning("AniList returned HTTP %s", error.response.status_code)
             raise AniListResponseError from error
@@ -183,7 +217,7 @@ class AniListClient:
 
         errors = root.get("errors")
         if isinstance(errors, list) and errors:
-            logger.warning("AniList GraphQL returned errors")
+            logger.warning("AniList GraphQL returned errors: %s", errors)
             raise AniListResponseError
 
         data = _as_mapping(root.get("data"))
@@ -216,6 +250,8 @@ class AniListClient:
             sort=sort,
         )
         data = await self._request(query, variables)
+        if data is None:
+            raise AniListResponseError
         page_data = _as_mapping(data.get("Page"))
         if page_data is None:
             logger.warning("AniList page response was malformed")
@@ -223,7 +259,13 @@ class AniListClient:
         return page_data
 
     async def get_media(self, anime_id: int) -> Mapping[str, object] | None:
-        data = await self._request(DETAIL_QUERY, {"id": anime_id})
+        data = await self._request(
+            DETAIL_QUERY,
+            {"id": anime_id},
+            return_none_on_not_found=True,
+        )
+        if data is None:
+            return None
         media = data.get("Media")
         if media is None:
             return None
