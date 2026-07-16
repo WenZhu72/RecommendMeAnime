@@ -1,66 +1,68 @@
 # RecommendMeAnime
 
-> A full-stack anime discovery web application built with **Next.js** and **FastAPI**.
+> A full-stack anime discovery platform built with **Next.js** and **FastAPI**.
 
  **Live Demo:** https://recommend-me-anime.vercel.app/
 
  **API Documentation:** https://recommendmeanime.onrender.com/docs
 
----
-
-## About
-
-RecommendMeAnime is a full-stack web application that helps users discover new anime through search and browsing.
-
-I built this project to gain experience developing a modern full-stack application using a separate frontend and backend. Rather than allowing the frontend to communicate directly with AniList, every request passes through a FastAPI backend, which is responsible for communicating with AniList's GraphQL API, validating responses, handling errors, and caching results.
-
-The project also gave me experience deploying a real application using **Vercel**, **Render**, and **GitHub Actions**, while following common software engineering practices such as environment configuration, REST APIs, continuous integration, and clean project structure.
+> **Note:** The backend is hosted on Render's free tier, so the first request may take a few seconds if the service is waking up.
 
 ---
 
-## Features
+# About
+
+RecommendMeAnime is a personal portfolio project that helps users discover new anime through search and browsing.
+
+I built the project to learn how to design, develop, and deploy a modern full-stack application using a separate frontend and backend. Rather than exposing the AniList API directly to the client, the frontend communicates with a FastAPI backend, which handles requests to AniList's GraphQL API, validates responses, manages caching, and returns consistent error messages.
+
+Along the way, I gained experience with REST APIs, GraphQL, deployment, CI/CD, environment management, and building a clean project structure that is easy to extend.
+
+---
+
+# Features
 
 -  Search for anime using the AniList API
 -  Browse popular and trending anime
 -  Save a personal watchlist in your browser
--  FastAPI REST backend
--  Responsive Next.js frontend
--  Interactive Swagger API documentation
--  Automated deployment with GitHub Actions
--  In-memory caching to reduce repeated API requests
--  Graceful error handling when upstream services are unavailable
+-  FastAPI REST API
+-  Responsive Next.js interface
+-  Interactive Swagger documentation
+-  Automatic CI/CD with GitHub Actions
+-  In-memory response caching
+-  Friendly error handling when external services are unavailable
 
 ---
 
-## Tech Stack
+# Tech Stack
 
-### Frontend
+## Frontend
 
 - Next.js
 - React
 - TypeScript
 - Tailwind CSS
 
-### Backend
+## Backend
 
 - FastAPI
 - Python
 - Pydantic
 - Uvicorn
 
-### Infrastructure
+## Infrastructure
 
 - Vercel
 - Render
 - GitHub Actions
 
-### External API
+## External Services
 
 - AniList GraphQL API
 
 ---
 
-## Architecture
+# Architecture
 
 ```
 Browser
@@ -75,15 +77,15 @@ FastAPI Backend (Render)
 AniList GraphQL API
 ```
 
-The frontend never communicates directly with AniList. Instead, every request is sent to the FastAPI backend, which provides a stable REST API, validates responses, caches frequently requested data, and returns consistent error messages if the upstream API is unavailable.
+The frontend never communicates directly with AniList. Every request is sent to the FastAPI backend, which handles communication with the external API, validates responses, caches frequently requested data, and provides a consistent REST interface for the frontend.
 
 ---
 
-## Running the Project Locally
+# Running Locally
 
-Clone the repository and start the backend and frontend in separate terminals.
+Clone the repository and run both the frontend and backend in separate terminals.
 
-### Backend
+## Backend
 
 ```powershell
 cd backend
@@ -99,7 +101,7 @@ Copy-Item .env.example .env
 uvicorn app.main:app --reload
 ```
 
-The backend will be available at:
+The API will be available at:
 
 ```
 http://localhost:8000
@@ -111,9 +113,7 @@ Swagger documentation:
 http://localhost:8000/docs
 ```
 
----
-
-### Frontend
+## Frontend
 
 ```powershell
 cd frontend
@@ -125,7 +125,7 @@ Copy-Item .env.example .env.local
 npm run dev
 ```
 
-The frontend will be available at:
+Open:
 
 ```
 http://localhost:3000
@@ -133,36 +133,36 @@ http://localhost:3000
 
 ---
 
-## Environment Variables
+# Environment Variables
 
-Example configuration files are included in the repository.
+Example configuration files are included for both the frontend and backend.
 
-### Backend
+## Backend
 
 | Variable | Description |
 |----------|-------------|
 | `APP_ENV` | Application environment |
 | `ANILIST_API_URL` | AniList GraphQL endpoint |
-| `EXTERNAL_API_TIMEOUT_SECONDS` | Timeout for upstream requests |
-| `CACHE_TTL_SECONDS` | Cache lifetime in seconds |
+| `EXTERNAL_API_TIMEOUT_SECONDS` | Timeout for requests to AniList |
+| `CACHE_TTL_SECONDS` | Cache duration |
 | `LOG_LEVEL` | Logging level |
 | `CORS_ALLOWED_ORIGINS` | Allowed frontend origins |
 
-### Frontend
+## Frontend
 
 | Variable | Description |
 |----------|-------------|
-| `NEXT_PUBLIC_API_BASE_URL` | URL of the deployed FastAPI backend |
+| `NEXT_PUBLIC_API_BASE_URL` | URL of the FastAPI backend |
 
-No secrets or API keys are committed to the repository.
+No secrets or API keys are stored in the repository.
 
 ---
 
-## Quality Checks
+# Development Checks
 
-Before deployment, the following checks can be run locally.
+Before deploying, run the following checks.
 
-### Backend
+## Backend
 
 ```powershell
 cd backend
@@ -172,7 +172,7 @@ pytest
 python -m compileall app tests
 ```
 
-### Frontend
+## Frontend
 
 ```powershell
 cd frontend
@@ -184,36 +184,34 @@ npm run typecheck
 npm run build
 ```
 
-GitHub Actions automatically runs these checks whenever code is pushed or a pull request is opened.
+These same checks are run automatically by GitHub Actions whenever code is pushed or a pull request is opened.
 
 ---
 
-## Deployment
+# Deployment
 
-The application is deployed using **Render** for the backend and **Vercel** for the frontend.
+The frontend is hosted on **Vercel**, while the FastAPI backend is deployed on **Render**.
 
-The FastAPI backend exposes a REST API that the frontend communicates with using the `NEXT_PUBLIC_API_BASE_URL` environment variable.
-
-Because the frontend and backend are deployed independently, new versions can be released without affecting the other service. GitHub Actions automatically verifies the project before deployment by running the backend tests together with the frontend linting, type checking, and production build.
+The frontend communicates with the deployed backend using the `NEXT_PUBLIC_API_BASE_URL` environment variable. GitHub Actions automatically validates the project by running tests, linting, type checking, and production builds before deployment.
 
 ---
 
-## Security
+# Security
 
-A few practices followed throughout the project include:
+Although this is a portfolio project, I followed a number of good development practices throughout the application.
 
 - Environment variables are used for configuration.
-- No secrets are committed to the repository.
-- User input is never directly interpolated into GraphQL queries.
-- Upstream API errors are sanitised before being returned to users.
-- Only explicitly configured CORS origins are allowed.
-- Temporary build files and virtual environments are excluded from version control.
+- Sensitive information is never committed to the repository.
+- User input is safely passed to AniList using GraphQL variables.
+- Upstream errors are sanitised before being returned to the client.
+- CORS is explicitly configured rather than allowing unrestricted access.
+- Build artefacts, virtual environments, and temporary files are excluded from version control.
 
 ---
 
-## Future Improvements
+# Future Improvements
 
-There are several features I'd like to add in future versions of the project:
+Some features I'd like to add in future versions include:
 
 - User authentication
 - PostgreSQL database
@@ -222,10 +220,11 @@ There are several features I'd like to add in future versions of the project:
 - Recommendation history
 - User ratings and reviews
 - Docker support
-- More advanced filtering options
+- Advanced filtering and sorting
+- Recommendation explanations using AI
 
 ---
 
-## License
+# License
 
 This project was created for educational and portfolio purposes.
