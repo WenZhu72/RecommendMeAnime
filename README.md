@@ -1,4 +1,3 @@
-````markdown
 # RecommendMeAnime
 
 > A full-stack anime discovery web application built with **Next.js** and **FastAPI**.
@@ -230,4 +229,3 @@ There are several features I'd like to add in future versions of the project:
 ## License
 
 This project was created for educational and portfolio purposes.
-````
