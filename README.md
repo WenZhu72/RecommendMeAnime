@@ -1,137 +1,233 @@
+````markdown
 # RecommendMeAnime
 
-RecommendMeAnime is a full-stack anime discovery application. The Next.js frontend talks only to the FastAPI backend, which queries AniList's GraphQL API and returns a stable REST response.
+> A full-stack anime discovery web application built with **Next.js** and **FastAPI**.
 
-```text
-Browser → Vercel-hosted Next.js → Render-hosted FastAPI → AniList GraphQL API
+ **Live Demo:** https://recommend-me-anime.vercel.app/
+
+ **API Documentation:** https://recommendmeanime.onrender.com/docs
+
+---
+
+## About
+
+RecommendMeAnime is a full-stack web application that helps users discover new anime through search and browsing.
+
+I built this project to gain experience developing a modern full-stack application using a separate frontend and backend. Rather than allowing the frontend to communicate directly with AniList, every request passes through a FastAPI backend, which is responsible for communicating with AniList's GraphQL API, validating responses, handling errors, and caching results.
+
+The project also gave me experience deploying a real application using **Vercel**, **Render**, and **GitHub Actions**, while following common software engineering practices such as environment configuration, REST APIs, continuous integration, and clean project structure.
+
+---
+
+## Features
+
+-  Search for anime using the AniList API
+-  Browse popular and trending anime
+-  Save a personal watchlist in your browser
+-  FastAPI REST backend
+-  Responsive Next.js frontend
+-  Interactive Swagger API documentation
+-  Automated deployment with GitHub Actions
+-  In-memory caching to reduce repeated API requests
+-  Graceful error handling when upstream services are unavailable
+
+---
+
+## Tech Stack
+
+### Frontend
+
+- Next.js
+- React
+- TypeScript
+- Tailwind CSS
+
+### Backend
+
+- FastAPI
+- Python
+- Pydantic
+- Uvicorn
+
+### Infrastructure
+
+- Vercel
+- Render
+- GitHub Actions
+
+### External API
+
+- AniList GraphQL API
+
+---
+
+## Architecture
+
+```
+Browser
+      │
+      ▼
+Next.js Frontend (Vercel)
+      │
+      ▼
+FastAPI Backend (Render)
+      │
+      ▼
+AniList GraphQL API
 ```
 
-The app has no database or authentication service. The watchlist is stored only in the visitor's browser.
+The frontend never communicates directly with AniList. Instead, every request is sent to the FastAPI backend, which provides a stable REST API, validates responses, caches frequently requested data, and returns consistent error messages if the upstream API is unavailable.
 
-## Local development
+---
 
-Use two terminals from the repository root.
+## Running the Project Locally
+
+Clone the repository and start the backend and frontend in separate terminals.
 
 ### Backend
 
 ```powershell
 cd backend
+
 python -m venv .venv
+
 .\.venv\Scripts\Activate.ps1
+
 pip install -r requirements-dev.txt
+
 Copy-Item .env.example .env
-.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+uvicorn app.main:app --reload
 ```
 
-For Command Prompt, activate the virtual environment with:
+The backend will be available at:
 
-```cmd
-.venv\Scripts\activate
+```
+http://localhost:8000
 ```
 
-The API is available at `http://localhost:8000`, its health check is at `http://localhost:8000/health`, and Swagger UI is at `http://localhost:8000/docs`.
+Swagger documentation:
+
+```
+http://localhost:8000/docs
+```
+
+---
 
 ### Frontend
 
 ```powershell
 cd frontend
-Copy-Item .env.example .env.local
+
 npm install
+
+Copy-Item .env.example .env.local
+
 npm run dev
 ```
 
-Open `http://localhost:3000`.
+The frontend will be available at:
 
-## Environment variables
+```
+http://localhost:3000
+```
 
-Copy the committed example files; never commit the local files they produce.
+---
 
-| File | Variable | Purpose |
-| --- | --- | --- |
-| `backend/.env` | `APP_ENV` | `development` locally and `production` on Render. |
-| `backend/.env` | `ANILIST_API_URL` | AniList endpoint; defaults to `https://graphql.anilist.co`. |
-| `backend/.env` | `EXTERNAL_API_TIMEOUT_SECONDS` | Upstream request timeout; defaults to `10`. |
-| `backend/.env` | `CACHE_TTL_SECONDS` | In-memory AniList response cache TTL; defaults to `3600`, or `0` to disable. |
-| `backend/.env` | `LOG_LEVEL` | Python log level; defaults to `INFO`. |
-| `backend/.env` | `CORS_ALLOWED_ORIGINS` | Required browser origins, comma-separated, for example `http://localhost:3000,https://your-app.vercel.app`. |
-| `frontend/.env.local` | `NEXT_PUBLIC_API_BASE_URL` | Public FastAPI base URL, for example `http://localhost:8000` locally. |
+## Environment Variables
 
-`NEXT_PUBLIC_` values are embedded in the browser bundle. Do not put keys, tokens, passwords, or any other secret in them. `FRONTEND_ORIGIN` and `FRONTEND_URL` remain supported as single-origin backend compatibility fallbacks, but new deployments should use `CORS_ALLOWED_ORIGINS`.
+Example configuration files are included in the repository.
 
-The backend normalises trailing slashes and rejects wildcard CORS origins. It permits only `GET` and `POST` API requests, with credential-compatible explicit origins.
+### Backend
 
-## Checks
+| Variable | Description |
+|----------|-------------|
+| `APP_ENV` | Application environment |
+| `ANILIST_API_URL` | AniList GraphQL endpoint |
+| `EXTERNAL_API_TIMEOUT_SECONDS` | Timeout for upstream requests |
+| `CACHE_TTL_SECONDS` | Cache lifetime in seconds |
+| `LOG_LEVEL` | Logging level |
+| `CORS_ALLOWED_ORIGINS` | Allowed frontend origins |
 
-Run these before deploying:
+### Frontend
+
+| Variable | Description |
+|----------|-------------|
+| `NEXT_PUBLIC_API_BASE_URL` | URL of the deployed FastAPI backend |
+
+No secrets or API keys are committed to the repository.
+
+---
+
+## Quality Checks
+
+Before deployment, the following checks can be run locally.
+
+### Backend
 
 ```powershell
-# backend
 cd backend
-.\.venv\Scripts\python.exe -m pytest -q
-.\.venv\Scripts\python.exe -m compileall app tests
 
-# frontend
+pytest
+
+python -m compileall app tests
+```
+
+### Frontend
+
+```powershell
 cd frontend
+
 npm run lint
+
 npm run typecheck
+
 npm run build
 ```
 
-GitHub Actions runs the same backend tests plus frontend lint, type-check, and production build on every push and pull request. It uses `npm ci` because `frontend/package-lock.json` is committed.
+GitHub Actions automatically runs these checks whenever code is pushed or a pull request is opened.
 
-## Deploy the backend to Render
+---
 
-The repository includes [`render.yaml`](./render.yaml). Create a Render Blueprint from the GitHub repository, or enter these exact dashboard settings:
+## Deployment
 
-| Render setting | Value |
-| --- | --- |
-| Service type | Web Service |
-| Runtime | Python |
-| Root directory | `backend` |
-| Build command | `pip install -r requirements.txt` |
-| Start command | `uvicorn app.main:app --host 0.0.0.0 --port $PORT` |
-| Health-check path | `/health` |
+The application is deployed using **Render** for the backend and **Vercel** for the frontend.
 
-Set these Render environment variables (replace the Vercel URL after the frontend is deployed):
+The FastAPI backend exposes a REST API that the frontend communicates with using the `NEXT_PUBLIC_API_BASE_URL` environment variable.
 
-```env
-APP_ENV=production
-ANILIST_API_URL=https://graphql.anilist.co
-EXTERNAL_API_TIMEOUT_SECONDS=10
-CACHE_TTL_SECONDS=3600
-LOG_LEVEL=INFO
-CORS_ALLOWED_ORIGINS=http://localhost:3000,https://your-app.vercel.app
-```
+Because the frontend and backend are deployed independently, new versions can be released without affecting the other service. GitHub Actions automatically verifies the project before deployment by running the backend tests together with the frontend linting, type checking, and production build.
 
-No port environment variable is needed: Render provides `PORT` and the start command uses it. The `/health` endpoint is intentionally local-only work—it does not query AniList or require authentication.
+---
 
-The cache is process-local. On a multi-instance service, each instance has a separate cache; it is cleared by a redeploy, restart, or Render instance sleep. Cache misses and cache errors never prevent an AniList request.
+## Security
 
-## Deploy the frontend to Vercel
+A few practices followed throughout the project include:
 
-Import the same GitHub repository in Vercel and use:
+- Environment variables are used for configuration.
+- No secrets are committed to the repository.
+- User input is never directly interpolated into GraphQL queries.
+- Upstream API errors are sanitised before being returned to users.
+- Only explicitly configured CORS origins are allowed.
+- Temporary build files and virtual environments are excluded from version control.
 
-| Vercel setting | Value |
-| --- | --- |
-| Root directory | `frontend` |
-| Framework preset | Next.js (auto-detected) |
-| Install command | `npm ci` (set in `frontend/vercel.json`) |
-| Build command | `npm run build` (default) |
+---
 
-Set this environment variable for Production (and Preview if those deployments should be functional):
+## Future Improvements
 
-```env
-NEXT_PUBLIC_API_BASE_URL=https://your-render-service.onrender.com
-```
+There are several features I'd like to add in future versions of the project:
 
-`frontend/vercel.json` intentionally contains only the `npm ci` install override; Vercel's normal Next.js defaults handle the framework and build command. The homepage, browse page, and search page are dynamic so the Vercel build never requires a reachable Render service.
+- User authentication
+- PostgreSQL database
+- Cloud-synchronised watchlists
+- Personalised recommendations
+- Recommendation history
+- User ratings and reviews
+- Docker support
+- More advanced filtering options
 
-## Reliability, rollback, and operating notes
+---
 
-AniList calls are asynchronous, time-bounded, use GraphQL variables, and validate HTTP, JSON, and GraphQL error responses. The API returns stable errors instead of upstream response bodies: `502` for unusable upstream responses, `503` for an unreachable dependency, and `504` for an upstream timeout. The frontend presents a loading state, clear failures, and one short retry for safe `GET` requests—helpful when a Render instance is waking from sleep.
+## License
 
-To roll back, redeploy an earlier Vercel deployment from the Vercel dashboard and redeploy an earlier Render commit from the Render dashboard. For a repository-level rollback, create and push a revert with `git revert <commit>`; the integrations will deploy the reverted commit. Do not rewrite shared Git history to roll back production.
-
-## Security and repository hygiene
-
-`.env`, `.env.local`, virtual environments, Python caches, `node_modules`, `.next`, test coverage, and build artefacts are ignored. The committed example files contain only safe placeholders. The application does not accept user-controlled upstream URLs, does not interpolate user input into GraphQL queries, does not render raw upstream HTML, and does not expose AniList response bodies or stack traces to users.
+This project was created for educational and portfolio purposes.
+````
