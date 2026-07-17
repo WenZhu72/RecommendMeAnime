@@ -10,34 +10,63 @@ type AnimeCardProps = {
   imageLoading?: "eager" | "lazy";
 };
 
+function formatMetadata(anime: Anime): string {
+  return [anime.format?.replaceAll("_", " "), anime.seasonYear].filter(Boolean).join(" · ") || "Details available";
+}
+
 export function AnimeCard({ anime, imageLoading = "lazy" }: AnimeCardProps) {
   return (
-    <article className="group overflow-hidden rounded-xl border border-slate-800 bg-slate-900/70 shadow-sm transition-colors hover:border-slate-700">
-      <Link href={`/anime/${anime.id}`} className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400">
-        <div className="relative aspect-[2/3] bg-slate-800">
-          {anime.coverImage ? (
-            <Image src={anime.coverImage} alt={`Cover art for ${anime.title}`} fill loading={imageLoading} sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw" className="object-cover transition-transform duration-200 group-hover:scale-[1.02]" />
-          ) : (
-            <div className="flex h-full items-center justify-center px-4 text-center text-sm text-slate-400">No cover image available</div>
-          )}
-        </div>
-      </Link>
-      <div className="space-y-3 p-4">
-        <div className="flex items-start justify-between gap-2">
-          <h3 className="line-clamp-2 font-semibold text-white">
-            <Link href={`/anime/${anime.id}`} className="hover:text-indigo-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400">
-              {anime.title}
-            </Link>
-          </h3>
+    <article className="group flex h-full flex-col overflow-hidden rounded-card border border-line/80 bg-surface/75 shadow-card transition-[transform,border-color,box-shadow] duration-300 ease-product hover:-translate-y-1 hover:border-line-strong hover:shadow-card-hover focus-within:border-brand/55 focus-within:ring-2 focus-within:ring-brand/30">
+      <div className="relative">
+        <Link
+          href={`/anime/${anime.id}`}
+          className="block focus-visible:outline-none"
+          aria-label={`View details for ${anime.title}`}
+        >
+          <div className="relative aspect-[2/3] overflow-hidden bg-surface-raised">
+            {anime.coverImage ? (
+              <Image
+                src={anime.coverImage}
+                alt={`Cover art for ${anime.title}`}
+                fill
+                loading={imageLoading}
+                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, 20vw"
+                className="object-cover transition-transform duration-500 ease-product group-hover:scale-[1.045]"
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center px-4 text-center text-xs leading-5 text-ink-faint">
+                No cover image available
+              </div>
+            )}
+            <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/70 to-transparent" />
+            {anime.averageScore !== null && (
+              <span className="absolute bottom-3 left-3 inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/60 px-2 py-1 text-[0.6875rem] font-semibold text-white backdrop-blur-md">
+                <span className="text-accent" aria-hidden="true">&#9733;</span>
+                <span>{anime.averageScore}%</span>
+                <span className="sr-only">AniList score</span>
+              </span>
+            )}
+          </div>
+        </Link>
+        <div className="absolute right-2.5 top-2.5 z-10">
           <WatchlistButton anime={anime} compact />
         </div>
-        <p className="text-sm text-slate-400">
-          {anime.averageScore ? `AniList score: ${anime.averageScore}%` : "No AniList score"}
-          {anime.format ? ` · ${anime.format}` : ""}
-          {anime.seasonYear ? ` · ${anime.seasonYear}` : ""}
-        </p>
-        <div className="flex min-h-5 flex-wrap gap-1.5">
-          {anime.genres.slice(0, 3).map((genre) => <GenreBadge key={genre}>{genre}</GenreBadge>)}
+      </div>
+
+      <div className="flex flex-1 flex-col p-3.5 sm:p-4">
+        <h3 className="line-clamp-2 text-sm font-semibold leading-5 tracking-[-0.015em] text-ink sm:text-[0.9375rem] sm:leading-5">
+          <Link
+            href={`/anime/${anime.id}`}
+            className="rounded-sm transition-colors hover:text-brand-soft focus-visible:outline-none"
+          >
+            {anime.title}
+          </Link>
+        </h3>
+        <p className="mt-1.5 text-xs text-ink-faint">{formatMetadata(anime)}</p>
+        <div className="mt-3 flex min-h-5 flex-wrap gap-1.5">
+          {anime.genres.slice(0, 2).map((genre) => (
+            <GenreBadge key={genre}>{genre}</GenreBadge>
+          ))}
         </div>
       </div>
     </article>

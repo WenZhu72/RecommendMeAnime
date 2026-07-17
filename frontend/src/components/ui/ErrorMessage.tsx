@@ -1,3 +1,20 @@
-export function ErrorMessage({ message = "Anime cannot be loaded right now. Please try again." }: { message?: string }) {
-  return <div role="alert" className="rounded-xl border border-red-900/70 bg-red-950/30 px-5 py-4 text-sm text-red-200">{message}</div>;
+export function ErrorMessage({
+  message = "Anime cannot be loaded right now. Please try again.",
+}: {
+  message?: string;
+}) {
+  return (
+    <div
+      role="alert"
+      className="flex items-start gap-3 rounded-card border border-danger/25 bg-danger/[0.07] px-5 py-4 text-sm leading-6 text-rose-100"
+    >
+      <span
+        aria-hidden="true"
+        className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-danger/15 text-xs font-bold text-danger"
+      >
+        !
+      </span>
+      {message}
+    </div>
+  );
 }
