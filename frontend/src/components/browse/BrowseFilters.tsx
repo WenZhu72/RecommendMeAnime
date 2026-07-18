@@ -1,13 +1,13 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { FilterDropdown } from "@/components/browse/FilterDropdown";
 import { GenreDropdown } from "@/components/browse/GenreDropdown";
 import { useBrowseNavigation } from "@/components/browse/BrowseNavigation";
 import { SearchIcon, SlidersIcon } from "@/components/ui/Icons";
-import { fieldStyles, Input } from "@/components/ui/Input";
+import { Input } from "@/components/ui/Input";
 import { ANIME_FORMATS, ANIME_SEASONS, BROWSE_SORTS, BROWSE_YEARS } from "@/config/catalogue";
 import { buildBrowseLocation } from "@/lib/browse-path";
 import { cn } from "@/lib/utils";
@@ -17,6 +17,9 @@ type BrowseFiltersProps = {
 };
 
 const YEAR_OPTIONS = BROWSE_YEARS.map((year) => ({ label: String(year), value: String(year) }));
+const MINIMUM_SCORE_MAX = 100;
+const MINIMUM_SCORE_STEP = 5;
+const SCORE_COMMIT_DELAY_MS = 320;
 
 export function BrowseFilters({ initialSearch = "" }: BrowseFiltersProps) {
   const searchParams = useSearchParams();
@@ -90,13 +93,14 @@ export function BrowseFilters({ initialSearch = "" }: BrowseFiltersProps) {
           </button>
         </form>
 
-        <GenreDropdown selected={selectedGenres} onApply={updateGenres} disabled={isPending} />
+        <GenreDropdown selected={selectedGenres} onChange={updateGenres} />
         <FilterDropdown
           label="Format"
           value={searchParams.get("format") ?? ""}
           placeholder="Format"
           options={ANIME_FORMATS}
           disabled={isPending}
+          clearOnReselect
           onChange={(value) => updateParameter("format", value)}
         />
         <FilterDropdown
@@ -105,6 +109,7 @@ export function BrowseFilters({ initialSearch = "" }: BrowseFiltersProps) {
           placeholder="Season"
           options={ANIME_SEASONS}
           disabled={isPending}
+          clearOnReselect
           onChange={(value) => updateParameter("season", value)}
         />
 
@@ -114,6 +119,7 @@ export function BrowseFilters({ initialSearch = "" }: BrowseFiltersProps) {
           placeholder="Year"
           options={YEAR_OPTIONS}
           disabled={isPending}
+          clearOnReselect
           onChange={(value) => updateParameter("year", value)}
         />
 
@@ -155,21 +161,12 @@ export function BrowseFilters({ initialSearch = "" }: BrowseFiltersProps) {
       >
         <div className="min-h-0 overflow-hidden">
           <div className="mt-2 flex flex-col gap-3 border-t border-line px-1 pt-3 sm:flex-row sm:items-end sm:justify-between">
-            <label className="block w-full max-w-xs text-xs font-semibold text-ink-muted">
-              Minimum score
-              <select
-                value={searchParams.get("minimumScore") ?? ""}
-                onChange={(event) => updateParameter("minimumScore", event.target.value)}
-                disabled={isPending}
-                className={cn(fieldStyles, "mt-1.5 min-h-10")}
-              >
-                <option value="">Any score</option>
-                <option value="60">60% or higher</option>
-                <option value="70">70% or higher</option>
-                <option value="80">80% or higher</option>
-                <option value="90">90% or higher</option>
-              </select>
-            </label>
+            <MinimumScoreSlider
+              key={searchParams.get("minimumScore") ?? "any-score"}
+              initialValue={searchParams.get("minimumScore") ?? ""}
+              disabled={isPending}
+              onCommit={(value) => updateParameter("minimumScore", value)}
+            />
             {hasFilters && (
               <button
                 type="button"
@@ -185,4 +182,141 @@ export function BrowseFilters({ initialSearch = "" }: BrowseFiltersProps) {
       </div>
     </section>
   );
+}
+
+type MinimumScoreSliderProps = {
+  disabled: boolean;
+  initialValue: string;
+  onCommit: (value: string) => void;
+};
+
+function MinimumScoreSlider({ disabled, initialValue, onCommit }: MinimumScoreSliderProps) {
+  const initialScore = normalizedScore(initialValue);
+  const [draftScore, setDraftScore] = useState(initialScore);
+  const draftScoreRef = useRef(initialScore);
+  const pointerActiveRef = useRef(false);
+  const commitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scoreLabel = draftScore ? `${draftScore}% or higher` : "Any score";
+
+  useEffect(() => () => clearCommitTimer(), []);
+
+  function clearCommitTimer() {
+    if (commitTimerRef.current === null) return;
+    clearTimeout(commitTimerRef.current);
+    commitTimerRef.current = null;
+  }
+
+  function commitScore(score = draftScoreRef.current) {
+    clearCommitTimer();
+    onCommit(score ? String(score) : "");
+  }
+
+  function scheduleCommit(score: number) {
+    clearCommitTimer();
+    commitTimerRef.current = setTimeout(() => commitScore(score), SCORE_COMMIT_DELAY_MS);
+  }
+
+  function updateDraft(score: number) {
+    draftScoreRef.current = score;
+    setDraftScore(score);
+    if (!pointerActiveRef.current) scheduleCommit(score);
+  }
+
+  function finishPointerInteraction() {
+    if (!pointerActiveRef.current) return;
+    pointerActiveRef.current = false;
+    commitScore();
+  }
+
+  function clearScore() {
+    draftScoreRef.current = 0;
+    setDraftScore(0);
+    commitScore(0);
+  }
+
+  return (
+    <div className="w-full max-w-md">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <label htmlFor="browse-minimum-score" className="text-xs font-semibold text-ink-muted">
+          Minimum score
+        </label>
+        <div className="flex items-center gap-2">
+          <output
+            htmlFor="browse-minimum-score"
+            className="rounded-full bg-score/10 px-2.5 py-1 text-xs font-semibold text-score-ink"
+            aria-live="polite"
+          >
+            {scoreLabel}
+          </output>
+          <button
+            type="button"
+            onClick={clearScore}
+            disabled={disabled || draftScore === 0}
+            className="rounded-md px-2 py-1 text-xs font-semibold text-ink-muted transition-colors hover:bg-ink/[0.05] hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-soft disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Clear
+          </button>
+        </div>
+      </div>
+      <input
+        id="browse-minimum-score"
+        type="range"
+        min="0"
+        max={MINIMUM_SCORE_MAX}
+        step={MINIMUM_SCORE_STEP}
+        value={draftScore}
+        disabled={disabled}
+        aria-label="Minimum AniList score"
+        aria-valuetext={scoreLabel}
+        onPointerDown={() => {
+          pointerActiveRef.current = true;
+          clearCommitTimer();
+        }}
+        onPointerUp={finishPointerInteraction}
+        onPointerCancel={finishPointerInteraction}
+        onChange={(event) => updateDraft(Number(event.target.value))}
+        onKeyDown={(event) => {
+          const nextScore = keyboardScore(event.key, draftScore);
+          if (nextScore === null) return;
+          event.preventDefault();
+          updateDraft(nextScore);
+        }}
+        onKeyUp={(event) => {
+          if (["ArrowLeft", "ArrowRight", "ArrowDown", "ArrowUp", "Home", "End", "PageDown", "PageUp"].includes(event.key)) {
+            commitScore();
+          }
+        }}
+        className="mt-3 block h-2 w-full cursor-grab appearance-none rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/25 focus-visible:ring-offset-2 focus-visible:ring-offset-surface active:cursor-grabbing disabled:cursor-not-allowed disabled:opacity-50 [&::-moz-range-thumb]:size-5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-surface [&::-moz-range-thumb]:bg-brand [&::-moz-range-thumb]:shadow-card [&::-webkit-slider-thumb]:size-5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-surface [&::-webkit-slider-thumb]:bg-brand [&::-webkit-slider-thumb]:shadow-card"
+        style={{
+          background: `linear-gradient(to right, var(--color-brand) 0%, var(--color-brand) ${draftScore}%, var(--color-line) ${draftScore}%, var(--color-line) 100%)`,
+        }}
+      />
+      <div className="mt-2 flex justify-between text-[0.6875rem] text-ink-faint" aria-hidden="true">
+        <span>Any</span>
+        <span>100%</span>
+      </div>
+    </div>
+  );
+}
+
+function normalizedScore(value: string): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return 0;
+  return Math.min(Math.round(parsed), MINIMUM_SCORE_MAX);
+}
+
+function keyboardScore(key: string, currentScore: number): number | null {
+  if (key === "Home") return 0;
+  if (key === "End") return MINIMUM_SCORE_MAX;
+
+  const increment = key === "PageUp" || key === "PageDown"
+    ? MINIMUM_SCORE_STEP * 4
+    : MINIMUM_SCORE_STEP;
+  if (["ArrowRight", "ArrowUp", "PageUp"].includes(key)) {
+    return Math.min(currentScore + increment, MINIMUM_SCORE_MAX);
+  }
+  if (["ArrowLeft", "ArrowDown", "PageDown"].includes(key)) {
+    return Math.max(currentScore - increment, 0);
+  }
+  return null;
 }

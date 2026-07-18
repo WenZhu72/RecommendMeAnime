@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 
 import { BrowseFilters } from "@/components/browse/BrowseFilters";
+import { BrowseLoadingCards } from "@/components/browse/BrowseLoadingCards";
 import { BrowseNavigationProvider, BrowseResultsBoundary } from "@/components/browse/BrowseNavigation";
 import { Pagination } from "@/components/browse/Pagination";
 import { Container } from "@/components/layout/Container";
 import { AnimeGrid } from "@/components/search/AnimeGrid";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorMessage } from "@/components/ui/ErrorMessage";
-import { LoadingCards } from "@/components/ui/LoadingCards";
 import { browseAnime } from "@/lib/api/anime";
 import { buildBrowseAnimePath } from "@/lib/browse-path";
 
@@ -116,7 +116,7 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
               <ErrorMessage message="The catalogue is unavailable right now. Your filters are still saved in the URL; please try again shortly." />
             ) : response?.items.length ? (
               <>
-                <AnimeGrid anime={response.items} eagerFirstImage />
+                <AnimeGrid anime={response.items} animateEntrance eagerFirstImage />
                 <Pagination pageInfo={response.pageInfo} />
               </>
             ) : (
@@ -139,7 +139,7 @@ function BrowseResultsLoading() {
     <section className="mt-9 scroll-mt-28 sm:mt-11" aria-label="Loading anime results" role="status">
       <span className="sr-only">Loading anime results and pagination</span>
       <div className="mb-6 h-8 w-52 animate-pulse rounded-lg bg-line/70" aria-hidden="true" />
-      <LoadingCards />
+      <BrowseLoadingCards />
     </section>
   );
 }

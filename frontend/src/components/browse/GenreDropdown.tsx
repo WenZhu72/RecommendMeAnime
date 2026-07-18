@@ -6,6 +6,7 @@ import {
   BrowseDropdownPanel,
   BrowseDropdownTrigger,
   browseDropdownOptionClasses,
+  browseDropdownSelectedOptionClasses,
   useBrowseDropdown,
 } from "@/components/browse/FilterDropdown";
 import { SearchIcon } from "@/components/ui/Icons";
@@ -14,11 +15,11 @@ import { ANIME_GENRES } from "@/config/catalogue";
 
 type GenreDropdownProps = {
   selected: string[];
-  onApply: (genres: string[]) => void;
+  onChange: (genres: string[]) => void;
   disabled?: boolean;
 };
 
-export function GenreDropdown({ selected, onApply, disabled = false }: GenreDropdownProps) {
+export function GenreDropdown({ selected, onChange, disabled = false }: GenreDropdownProps) {
   const {
     closeDropdown,
     open,
@@ -41,10 +42,15 @@ export function GenreDropdown({ selected, onApply, disabled = false }: GenreDrop
   }, [closeDropdown, disabled, open]);
 
   const filtered = ANIME_GENRES.filter((genre) => genre.toLowerCase().includes(query.trim().toLowerCase()));
-  const label = selected.length ? `Genre (${selected.length})` : "Genre";
+  const visibleSelection = open ? draft : selected;
+  const label = visibleSelection.length ? `Genre (${visibleSelection.length})` : "Genre";
 
   function toggleGenre(genre: string) {
-    setDraft((current) => current.includes(genre) ? current.filter((item) => item !== genre) : [...current, genre]);
+    const nextGenres = draft.includes(genre)
+      ? draft.filter((item) => item !== genre)
+      : [...draft, genre];
+    setDraft(nextGenres);
+    onChange(nextGenres);
   }
 
   return (
@@ -97,7 +103,10 @@ export function GenreDropdown({ selected, onApply, disabled = false }: GenreDrop
           {filtered.length ? filtered.map((genre) => {
             const checked = draft.includes(genre);
             return (
-              <label key={genre} className={browseDropdownOptionClasses}>
+              <label
+                key={genre}
+                className={`${browseDropdownOptionClasses} ${checked ? browseDropdownSelectedOptionClasses : ""}`}
+              >
                 <input
                   type="checkbox"
                   checked={checked}
@@ -115,21 +124,18 @@ export function GenreDropdown({ selected, onApply, disabled = false }: GenreDrop
         <div className="mt-2 flex items-center justify-between gap-3 border-t border-line pt-3">
           <button
             type="button"
-            onClick={() => setDraft([])}
-            className="rounded-md px-2 py-1.5 text-xs font-semibold text-ink-muted hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-soft"
-          >
-            Clear
-          </button>
-          <button
-            type="button"
             onClick={() => {
-              onApply(draft);
-              closeDropdown();
+              setDraft([]);
+              onChange([]);
             }}
-            className="min-h-9 rounded-[0.625rem] bg-brand px-3.5 text-xs font-semibold text-on-brand transition-colors hover:bg-brand-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-soft"
+            disabled={!draft.length}
+            className="rounded-md px-2 py-1.5 text-xs font-semibold text-ink-muted hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-soft disabled:cursor-not-allowed disabled:opacity-45"
           >
-            Apply genres
+            Clear genres
           </button>
+          <span className="text-xs text-ink-faint" aria-live="polite">
+            {draft.length ? `${draft.length} selected` : "All genres"}
+          </span>
         </div>
       </BrowseDropdownPanel>
     </div>

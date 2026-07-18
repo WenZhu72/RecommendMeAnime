@@ -19,6 +19,7 @@ import type {
 } from "react";
 
 import { ChevronDownIcon } from "@/components/ui/Icons";
+import { fieldStyles } from "@/components/ui/Input";
 import { cn } from "@/lib/utils";
 
 const BROWSE_DROPDOWN_OPEN_EVENT = "browse-dropdown-open";
@@ -27,6 +28,7 @@ const VIEWPORT_GUTTER_PX = 20;
 
 export const browseDropdownOptionClasses =
   "flex w-full cursor-pointer items-center gap-3 rounded-lg px-2.5 py-2 text-left text-sm text-ink-muted transition-colors hover:bg-ink/[0.045] hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-soft";
+export const browseDropdownSelectedOptionClasses = "bg-brand/[0.10] font-medium text-ink";
 
 type UseBrowseDropdownResult = {
   closeDropdown: (restoreFocus?: boolean) => void;
@@ -108,11 +110,11 @@ export const BrowseDropdownTrigger = forwardRef<HTMLButtonElement, BrowseDropdow
         ref={ref}
         type="button"
         className={cn(
-          "flex min-h-control w-full items-center justify-between gap-2 rounded-control border bg-canvas-soft/90 px-3.5 text-sm font-medium transition-[border-color,background-color,box-shadow] duration-200",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/20 disabled:cursor-not-allowed disabled:opacity-55",
-          open || active
-            ? "border-brand/45 text-ink"
-            : "border-line text-ink-muted hover:border-line-strong hover:text-ink",
+          fieldStyles,
+          "flex min-h-control items-center justify-between gap-2 font-medium",
+          "ease-product disabled:cursor-not-allowed disabled:opacity-55",
+          active ? "text-ink" : "text-ink-muted",
+          open && "border-brand/70 bg-surface ring-2 ring-brand/20",
           className,
         )}
         {...props}
@@ -211,6 +213,7 @@ export type FilterDropdownOption = {
 };
 
 type FilterDropdownProps = {
+  clearOnReselect?: boolean;
   disabled?: boolean;
   includePlaceholderOption?: boolean;
   label: string;
@@ -221,6 +224,7 @@ type FilterDropdownProps = {
 };
 
 export function FilterDropdown({
+  clearOnReselect = false,
   disabled = false,
   includePlaceholderOption = true,
   label,
@@ -263,8 +267,9 @@ export function FilterDropdown({
   }
 
   function selectOption(nextValue: string) {
+    const resolvedValue = clearOnReselect && nextValue && nextValue === value ? "" : nextValue;
     closeDropdown(true);
-    if (nextValue !== value) onChange(nextValue);
+    if (resolvedValue !== value) onChange(resolvedValue);
   }
 
   function handleTriggerKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
@@ -365,20 +370,9 @@ export function FilterDropdown({
               onMouseEnter={() => setActiveIndex(index)}
               className={cn(
                 browseDropdownOptionClasses,
-                selected && "bg-ink/[0.045] text-ink",
+                selected && browseDropdownSelectedOptionClasses,
               )}
             >
-              <span
-                aria-hidden="true"
-                className={cn(
-                  "flex size-4 shrink-0 items-center justify-center rounded border text-[0.625rem] font-bold",
-                  selected
-                    ? "border-brand bg-brand text-on-brand"
-                    : "border-line-strong text-transparent",
-                )}
-              >
-                {"\u2713"}
-              </span>
               <span className="truncate">{option.label}</span>
             </button>
           );

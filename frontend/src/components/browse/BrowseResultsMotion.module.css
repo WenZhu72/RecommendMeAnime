@@ -1,0 +1,84 @@
+.skeletonCard {
+  opacity: 0;
+  transform: scale(0.96);
+  transform-origin: center top;
+  animation: browse-skeleton-enter 420ms var(--ease-product) both;
+  animation-delay: var(--browse-stagger-delay, 0ms);
+}
+
+.skeletonSurface {
+  position: relative;
+  overflow: hidden;
+}
+
+.skeletonSurface::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background: linear-gradient(
+    105deg,
+    transparent 20%,
+    color-mix(in srgb, var(--color-ink) 8%, transparent) 46%,
+    transparent 72%
+  );
+  transform: translateX(-110%);
+  animation: browse-skeleton-shimmer 1.8s ease-in-out infinite;
+  animation-delay: var(--browse-stagger-delay, 0ms);
+}
+
+.resultCard {
+  height: 100%;
+  opacity: 0;
+  transform: scale(0.97);
+  transform-origin: center top;
+  animation: browse-result-enter 460ms var(--ease-product) both;
+  animation-delay: var(--browse-stagger-delay, 0ms);
+}
+
+@keyframes browse-skeleton-enter {
+  from {
+    opacity: 0.48;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes browse-skeleton-shimmer {
+  0%,
+  24% {
+    transform: translateX(-110%);
+  }
+  68%,
+  100% {
+    transform: translateX(110%);
+  }
+}
+
+@keyframes browse-result-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeletonCard,
+  .resultCard {
+    opacity: 1;
+    transform: none;
+    animation: none;
+  }
+
+  .skeletonSurface::after {
+    opacity: 0.12;
+    transform: none;
+    animation: none;
+  }
+}
