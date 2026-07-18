@@ -3,6 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 
+import { FilterDropdown } from "@/components/browse/FilterDropdown";
 import { GenreDropdown } from "@/components/browse/GenreDropdown";
 import { useBrowseNavigation } from "@/components/browse/BrowseNavigation";
 import { SearchIcon, SlidersIcon } from "@/components/ui/Icons";
@@ -15,15 +16,7 @@ type BrowseFiltersProps = {
   initialSearch?: string;
 };
 
-type FilterSelectProps = {
-  label: string;
-  name: string;
-  value: string;
-  defaultLabel: string;
-  options: readonly { value: string; label: string }[];
-  disabled: boolean;
-  onChange: (name: string, value: string) => void;
-};
+const YEAR_OPTIONS = BROWSE_YEARS.map((year) => ({ label: String(year), value: String(year) }));
 
 export function BrowseFilters({ initialSearch = "" }: BrowseFiltersProps) {
   const searchParams = useSearchParams();
@@ -98,46 +91,40 @@ export function BrowseFilters({ initialSearch = "" }: BrowseFiltersProps) {
         </form>
 
         <GenreDropdown selected={selectedGenres} onApply={updateGenres} disabled={isPending} />
-        <FilterSelect
+        <FilterDropdown
           label="Format"
-          name="format"
           value={searchParams.get("format") ?? ""}
-          defaultLabel="Format"
+          placeholder="Format"
           options={ANIME_FORMATS}
           disabled={isPending}
-          onChange={updateParameter}
+          onChange={(value) => updateParameter("format", value)}
         />
-        <FilterSelect
+        <FilterDropdown
           label="Season"
-          name="season"
           value={searchParams.get("season") ?? ""}
-          defaultLabel="Season"
+          placeholder="Season"
           options={ANIME_SEASONS}
           disabled={isPending}
-          onChange={updateParameter}
+          onChange={(value) => updateParameter("season", value)}
         />
 
-        <label className="min-w-0">
-          <span className="sr-only">Release year</span>
-          <select
-            value={searchParams.get("year") ?? ""}
-            onChange={(event) => updateParameter("year", event.target.value)}
-            disabled={isPending}
-            className={cn(fieldStyles, "min-h-control font-medium text-ink-muted")}
-          >
-            <option value="">Year</option>
-            {BROWSE_YEARS.map((year) => <option key={year} value={year}>{year}</option>)}
-          </select>
-        </label>
+        <FilterDropdown
+          label="Release year"
+          value={searchParams.get("year") ?? ""}
+          placeholder="Year"
+          options={YEAR_OPTIONS}
+          disabled={isPending}
+          onChange={(value) => updateParameter("year", value)}
+        />
 
-        <FilterSelect
+        <FilterDropdown
           label="Sort order"
-          name="sort"
           value={searchParams.get("sort") ?? "popular"}
-          defaultLabel="Sort"
+          placeholder="Sort"
           options={BROWSE_SORTS}
           disabled={isPending}
-          onChange={updateParameter}
+          includePlaceholderOption={false}
+          onChange={(value) => updateParameter("sort", value)}
         />
 
         <button
@@ -197,30 +184,5 @@ export function BrowseFilters({ initialSearch = "" }: BrowseFiltersProps) {
         </div>
       </div>
     </section>
-  );
-}
-
-function FilterSelect({
-  label,
-  name,
-  value,
-  defaultLabel,
-  options,
-  disabled,
-  onChange,
-}: FilterSelectProps) {
-  return (
-    <label className="min-w-0">
-      <span className="sr-only">{label}</span>
-      <select
-        value={value}
-        onChange={(event) => onChange(name, event.target.value)}
-        disabled={disabled}
-        className={cn(fieldStyles, "min-h-control font-medium text-ink-muted")}
-      >
-        {name !== "sort" && <option value="">{defaultLabel}</option>}
-        {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-      </select>
-    </label>
   );
 }
