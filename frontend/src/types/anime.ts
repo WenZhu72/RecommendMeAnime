@@ -16,6 +16,7 @@ export type Anime = {
   titles: AnimeTitle;
   description: string | null;
   coverImage: string | null;
+  color: string | null;
   bannerImage: string | null;
   averageScore: number | null;
   meanScore: number | null;

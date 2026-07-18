@@ -13,7 +13,7 @@ SUMMARY_FIELDS = """
   id
   title { english romaji native }
   description(asHtml: false)
-  coverImage { large }
+  coverImage { extraLarge large color }
   bannerImage
   averageScore
   meanScore

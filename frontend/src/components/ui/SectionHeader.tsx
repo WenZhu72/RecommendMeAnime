@@ -24,7 +24,7 @@ export function SectionHeader({
       {href && (
         <Link
           href={href}
-          className="group inline-flex shrink-0 items-center gap-1.5 rounded-md text-sm font-semibold text-brand-soft transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-soft"
+          className="group inline-flex shrink-0 items-center gap-1.5 rounded-md text-sm font-semibold text-brand-soft transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-soft"
         >
           {linkLabel}
           <span aria-hidden="true" className="transition-transform group-hover:translate-x-0.5">

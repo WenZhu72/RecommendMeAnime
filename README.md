@@ -23,7 +23,7 @@ Along the way, I gained experience with REST APIs, GraphQL, deployment, CI/CD, e
 # Features
 
 -  Search for anime using the AniList API
--  Browse popular and trending anime
+-  Browse, search, filter, sort, and paginate the AniList catalogue
 -  Save a personal watchlist in your browser
 -  FastAPI REST API
 -  Responsive Next.js interface
@@ -185,6 +185,12 @@ npm run build
 ```
 
 These same checks are run automatically by GitHub Actions whenever code is pushed or a pull request is opened.
+
+---
+
+# Frontend Customization
+
+The frontend design system, component ownership, responsive rules, animation controls, and end-to-end data flow are documented in [`frontend/CUSTOMIZATION.md`](frontend/CUSTOMIZATION.md).
 
 ---
 

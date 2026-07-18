@@ -14,13 +14,13 @@ type ButtonStyleOptions = {
 
 const variantClasses: Record<ButtonVariant, string> = {
   primary:
-    "bg-brand text-white shadow-[0_10px_30px_-14px_rgb(139_92_246_/_0.95)] hover:bg-brand-strong hover:shadow-[0_14px_36px_-16px_rgb(139_92_246_/_1)] focus-visible:ring-brand-soft",
+    "bg-brand text-on-brand shadow-[0_10px_30px_-14px_rgb(139_92_246_/_0.65)] hover:bg-brand-strong hover:shadow-[0_14px_36px_-16px_rgb(139_92_246_/_0.8)] focus-visible:ring-brand-soft",
   secondary:
     "border border-line-strong bg-surface-raised text-ink hover:border-brand/50 hover:bg-surface focus-visible:ring-brand-soft",
   outline:
-    "border border-line-strong bg-transparent text-ink-muted hover:border-brand/50 hover:bg-white/[0.04] hover:text-ink focus-visible:ring-brand-soft",
+    "border border-line-strong bg-transparent text-ink-muted hover:border-brand/50 hover:bg-ink/[0.04] hover:text-ink focus-visible:ring-brand-soft",
   ghost:
-    "bg-transparent text-ink-muted hover:bg-white/[0.05] hover:text-ink focus-visible:ring-brand-soft",
+    "bg-transparent text-ink-muted hover:bg-ink/[0.05] hover:text-ink focus-visible:ring-brand-soft",
 };
 
 const sizeClasses: Record<ButtonSize, string> = {

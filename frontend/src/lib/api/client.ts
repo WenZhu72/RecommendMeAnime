@@ -109,10 +109,18 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
   }
 }
 
-export function queryString(parameters: Record<string, string | number | undefined>): string {
+export function queryString(
+  parameters: Record<string, string | number | readonly string[] | undefined>,
+): string {
   const query = new URLSearchParams();
   Object.entries(parameters).forEach(([key, value]) => {
-    if (value !== undefined && value !== "") query.set(key, String(value));
+    if (Array.isArray(value)) {
+      value.forEach((item) => {
+        if (item) query.append(key, item);
+      });
+    } else if (value !== undefined && value !== "") {
+      query.set(key, String(value));
+    }
   });
   const serialized = query.toString();
   return serialized ? `?${serialized}` : "";

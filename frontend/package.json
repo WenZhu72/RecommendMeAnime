@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "node --test src/lib/description-format.test.mjs"
+    "test": "node --test src/lib/*.test.mjs"
   },
   "dependencies": {
     "clsx": "^2.1.1",

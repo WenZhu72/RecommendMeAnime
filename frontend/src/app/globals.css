@@ -1,12 +1,15 @@
 @import "tailwindcss";
 
 /*
- * RecommendMeAnime design tokens
+ * RecommendMeAnime design system
  *
- * These values are the safest place to make broad visual changes. Component
- * styles consume the semantic names below instead of repeating raw values.
+ * This is the root customization file. Keep components on semantic tokens
+ * (canvas, surface, ink, brand) so both themes remain visually equivalent.
+ * The sections below own colour, typography, spacing/sizing, breakpoints,
+ * radii, shadows, and motion respectively.
  */
 @theme {
+  /* Default (dark) semantic palette. Light values are overridden below. */
   --color-canvas: #080a12;
   --color-canvas-soft: #0d101b;
   --color-surface: #111522;
@@ -19,23 +22,65 @@
   --color-brand: #8b5cf6;
   --color-brand-strong: #7c3aed;
   --color-brand-soft: #c4b5fd;
-  --color-accent: #f7b955;
+  --color-on-brand: #ffffff;
+  --color-score: #f7b955;
+  --color-score-ink: #fde7bd;
   --color-danger: #fb7185;
+  --color-danger-ink: #fecdd3;
 
+  /* Typography */
   --font-sans: "Inter", "SF Pro Display", "SF Pro Text", -apple-system,
     BlinkMacSystemFont, "Segoe UI", sans-serif;
 
+  /* Sizing and global layout */
+  --container-content: 80rem;
+  --spacing-control: 2.75rem;
+  --spacing-nav: 4.25rem;
+
+  /* Responsive breakpoints. Keep these aligned with CUSTOMIZATION.md. */
+  --breakpoint-sm: 40rem;
+  --breakpoint-md: 48rem;
+  --breakpoint-lg: 64rem;
+  --breakpoint-xl: 80rem;
+
+  /* Shape */
   --radius-control: 0.75rem;
   --radius-card: 1.125rem;
   --radius-panel: 1.5rem;
 
+  /* Elevation */
   --shadow-card: 0 16px 44px -26px rgb(0 0 0 / 0.78);
   --shadow-card-hover: 0 26px 64px -30px rgb(0 0 0 / 0.92);
   --shadow-panel: 0 28px 80px -42px rgb(0 0 0 / 0.9);
 
+  /* Motion */
   --ease-product: cubic-bezier(0.22, 1, 0.36, 1);
   --animate-enter: enter 600ms var(--ease-product) both;
   --animate-pulse-soft: pulse-soft 1.8s ease-in-out infinite;
+}
+
+/* A true light palette, tuned independently rather than colour-inverted. */
+html.light {
+  --color-canvas: #f7f7f9;
+  --color-canvas-soft: #f0f0f4;
+  --color-surface: #ffffff;
+  --color-surface-raised: #f5f3fa;
+  --color-line: #dedee7;
+  --color-line-strong: #c8c7d4;
+  --color-ink: #17151f;
+  --color-ink-muted: #5f5b6b;
+  --color-ink-faint: #7d7889;
+  --color-brand: #7651d6;
+  --color-brand-strong: #6540c3;
+  --color-brand-soft: #6343b5;
+  --color-on-brand: #ffffff;
+  --color-score: #a86708;
+  --color-score-ink: #744707;
+  --color-danger: #c83e57;
+  --color-danger-ink: #982d41;
+  --shadow-card: 0 16px 40px -28px rgb(33 25 52 / 0.3);
+  --shadow-card-hover: 0 24px 54px -30px rgb(33 25 52 / 0.4);
+  --shadow-panel: 0 28px 74px -44px rgb(33 25 52 / 0.34);
 }
 
 @keyframes enter {
@@ -68,6 +113,11 @@
     min-width: 20rem;
     scroll-behavior: smooth;
     background: var(--color-canvas);
+    color-scheme: dark;
+  }
+
+  html.light {
+    color-scheme: light;
   }
 
   body {
@@ -81,6 +131,13 @@
     text-rendering: optimizeLegibility;
   }
 
+  html.light body {
+    background:
+      radial-gradient(circle at 8% -10%, rgb(118 81 214 / 0.08), transparent 32rem),
+      radial-gradient(circle at 92% 8%, rgb(100 116 139 / 0.06), transparent 28rem),
+      var(--color-canvas);
+  }
+
   ::selection {
     background: rgb(139 92 246 / 0.42);
     color: white;
@@ -89,9 +146,45 @@
   button,
   a,
   input,
-  select {
+  select,
+  summary {
     -webkit-tap-highlight-color: transparent;
   }
+
+  :focus-visible {
+    scroll-margin-block: 6rem;
+  }
+}
+
+/* Theme-aware artwork composition for the integrated detail hero. */
+.anime-detail-hero {
+  --artwork-accent: var(--color-brand);
+  background: var(--color-surface);
+}
+
+.anime-detail-banner-fade {
+  background: linear-gradient(to bottom, transparent 20%, var(--color-surface) 100%);
+  background:
+    linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--color-canvas) 10%, transparent) 0%,
+      color-mix(in srgb, var(--artwork-accent) 22%, transparent) 43%,
+      color-mix(in srgb, var(--artwork-accent) 12%, var(--color-surface)) 78%,
+      var(--color-surface) 100%
+    ),
+    linear-gradient(to right, color-mix(in srgb, var(--color-canvas) 30%, transparent), transparent 58%);
+}
+
+/* Shared quiet feature wash, used instead of component-specific dark RGB. */
+.feature-wash {
+  background: var(--color-surface);
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--color-brand) 10%, var(--color-surface)),
+      var(--color-surface) 48%,
+      color-mix(in srgb, var(--color-surface-raised) 72%, var(--color-surface))
+    );
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -6,6 +6,7 @@ import { useId, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { SearchIcon } from "@/components/ui/Icons";
 import { Input } from "@/components/ui/Input";
+import { buildBrowseSearchLocation } from "@/lib/browse-path";
 import { cn } from "@/lib/utils";
 
 type SearchBarProps = { initialQuery?: string; className?: string };
@@ -22,8 +23,7 @@ function SearchForm({ initialQuery, className }: SearchFormProps) {
 
   function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const search = query.trim();
-    router.push(search ? `/search?q=${encodeURIComponent(search)}` : "/search");
+    router.push(buildBrowseSearchLocation(query));
   }
 
   return (

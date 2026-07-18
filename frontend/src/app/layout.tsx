@@ -12,13 +12,37 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  colorScheme: "dark",
+  colorScheme: "dark light",
   themeColor: "#080a12",
 };
 
+const themeBootstrap = `
+(() => {
+  try {
+    const saved = localStorage.getItem("recommend-me-anime-theme");
+    const theme = saved === "light" || saved === "dark"
+      ? saved
+      : (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+    const root = document.documentElement;
+    root.dataset.theme = theme;
+    root.classList.toggle("light", theme === "light");
+    root.classList.toggle("dark", theme === "dark");
+    root.style.colorScheme = theme;
+  } catch (_) {}
+})();`;
+
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className="h-full antialiased">
+    <html
+      lang="en"
+      className="h-full antialiased dark"
+      data-theme="dark"
+      data-scroll-behavior="smooth"
+      suppressHydrationWarning
+    >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
+      </head>
       <body className="flex min-h-full flex-col bg-canvas text-ink">
         <WatchlistProvider>
           <NavBar />

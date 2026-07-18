@@ -25,6 +25,7 @@ class Anime(ApiModel):
     titles: AnimeTitle
     description: str | None = None
     cover_image: str | None = Field(default=None, serialization_alias="coverImage")
+    color: str | None = None
     banner_image: str | None = Field(default=None, serialization_alias="bannerImage")
     average_score: int | None = Field(default=None, serialization_alias="averageScore")
     mean_score: int | None = Field(default=None, serialization_alias="meanScore")

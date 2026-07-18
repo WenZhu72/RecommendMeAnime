@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-import { MenuIcon, SearchIcon, SparklesIcon, XIcon } from "@/components/ui/Icons";
+import { MenuIcon, SearchIcon, XIcon } from "@/components/ui/Icons";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { cn } from "@/lib/utils";
 import { Container } from "./Container";
 
@@ -16,28 +17,85 @@ const links = [
   { href: "/about", label: "About" },
 ];
 
+const TOP_LOCK_PX = 72;
+const SCROLL_THRESHOLD_PX = 12;
+
 function isActivePath(pathname: string, href: string): boolean {
   return href === "/" ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
 }
 
 export function NavBar() {
   const pathname = usePathname();
+  const headerRef = useRef<HTMLElement>(null);
+  const previousScroll = useRef(0);
+  const frame = useRef<number | null>(null);
   const [isOpen, setIsOpen] = useState(false);
+  const [isHidden, setIsHidden] = useState(false);
+  const [hasFocus, setHasFocus] = useState(false);
+
+  useEffect(() => {
+    previousScroll.current = window.scrollY;
+
+    function updateVisibility() {
+      frame.current = null;
+      const currentScroll = Math.max(window.scrollY, 0);
+      const delta = currentScroll - previousScroll.current;
+
+      if (currentScroll <= TOP_LOCK_PX || isOpen || hasFocus) {
+        setIsHidden(false);
+      } else if (Math.abs(delta) >= SCROLL_THRESHOLD_PX) {
+        setIsHidden(delta > 0);
+        previousScroll.current = currentScroll;
+        return;
+      }
+
+      if (Math.abs(delta) >= SCROLL_THRESHOLD_PX || currentScroll <= TOP_LOCK_PX) {
+        previousScroll.current = currentScroll;
+      }
+    }
+
+    function onScroll() {
+      if (frame.current === null) frame.current = window.requestAnimationFrame(updateVisibility);
+    }
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (frame.current !== null) window.cancelAnimationFrame(frame.current);
+    };
+  }, [hasFocus, isOpen]);
+
+  function closeMenu() {
+    setIsOpen(false);
+    setIsHidden(false);
+  }
 
   return (
-    <header className="sticky top-0 z-40 border-b border-line/80 bg-canvas/82 backdrop-blur-xl">
-      <Container className="flex min-h-18 items-center justify-between gap-5">
+    <header
+      ref={headerRef}
+      className={cn(
+        "sticky top-0 z-40 border-b border-line/80 bg-canvas/88 backdrop-blur-xl",
+        "transition-transform duration-300 ease-product will-change-transform",
+        isHidden && "-translate-y-full",
+      )}
+      onFocusCapture={() => {
+        setHasFocus(true);
+        setIsHidden(false);
+      }}
+      onBlurCapture={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setHasFocus(false);
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Escape" && isOpen) closeMenu();
+      }}
+    >
+      <Container className="flex min-h-nav items-center justify-between gap-4">
         <Link
           href="/"
-          className="group inline-flex shrink-0 items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-soft"
-          onClick={() => setIsOpen(false)}
+          className="shrink-0 rounded-md text-[0.9375rem] font-semibold tracking-[-0.03em] text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-soft sm:text-base"
+          onClick={closeMenu}
         >
-          <span className="flex size-8 items-center justify-center rounded-[0.65rem] bg-brand text-white shadow-[0_9px_24px_-12px_rgb(139_92_246_/_1)] transition-transform duration-200 ease-product group-hover:rotate-3 group-hover:scale-105">
-            <SparklesIcon className="size-4.5" />
-          </span>
-          <span className="text-[0.9375rem] font-semibold tracking-[-0.025em] text-ink sm:text-base">
-            Recommend<span className="text-brand-soft">Me</span>Anime
-          </span>
+          Recommend<span className="text-brand-soft">Me</span>Anime
         </Link>
 
         <nav className="hidden items-center gap-0.5 lg:flex" aria-label="Primary navigation">
@@ -47,12 +105,13 @@ export function NavBar() {
               <Link
                 key={link.href}
                 href={link.href}
+                onClick={closeMenu}
                 aria-current={active ? "page" : undefined}
                 className={cn(
                   "rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-soft",
                   active
-                    ? "bg-white/[0.065] text-ink"
-                    : "text-ink-muted hover:bg-white/[0.04] hover:text-ink",
+                    ? "bg-ink/[0.065] text-ink"
+                    : "text-ink-muted hover:bg-ink/[0.04] hover:text-ink",
                 )}
               >
                 {link.label}
@@ -63,19 +122,23 @@ export function NavBar() {
 
         <div className="flex items-center gap-2">
           <Link
-            href="/search"
+            href="/browse"
             aria-label="Search anime"
-            aria-current={pathname === "/search" ? "page" : undefined}
-            className="inline-flex size-10 items-center justify-center rounded-control border border-line bg-surface/70 text-ink-muted transition-all duration-200 hover:border-line-strong hover:bg-surface-raised hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-soft"
+            onClick={closeMenu}
+            className="inline-flex size-10 items-center justify-center rounded-control border border-line bg-surface/70 text-ink-muted transition-[color,background-color,border-color] duration-200 hover:border-line-strong hover:bg-surface-raised hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-soft"
           >
             <SearchIcon className="size-4.5" />
           </Link>
+          <ThemeToggle />
           <button
             type="button"
             aria-expanded={isOpen}
             aria-controls="mobile-navigation"
-            onClick={() => setIsOpen((open) => !open)}
-            className="inline-flex size-10 items-center justify-center rounded-control text-ink-muted transition-colors hover:bg-white/[0.05] hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-soft lg:hidden"
+            onClick={() => {
+              setIsOpen((open) => !open);
+              setIsHidden(false);
+            }}
+            className="inline-flex size-10 items-center justify-center rounded-control text-ink-muted transition-colors hover:bg-ink/[0.05] hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-soft lg:hidden"
           >
             <span className="sr-only">{isOpen ? "Close navigation menu" : "Open navigation menu"}</span>
             {isOpen ? <XIcon className="size-5" /> : <MenuIcon className="size-5" />}
@@ -83,12 +146,15 @@ export function NavBar() {
         </div>
       </Container>
 
-      {isOpen && (
-        <nav
-          id="mobile-navigation"
-          className="border-t border-line bg-canvas/96 shadow-panel lg:hidden"
-          aria-label="Mobile navigation"
-        >
+      <div
+        id="mobile-navigation"
+        className={cn(
+          "grid overflow-hidden border-line bg-canvas/98 shadow-panel transition-[grid-template-rows,border-color] duration-300 ease-product lg:hidden",
+          isOpen ? "grid-rows-[1fr] border-t" : "grid-rows-[0fr] border-transparent",
+        )}
+        aria-hidden={!isOpen}
+      >
+        <nav className="min-h-0 overflow-hidden" aria-label="Mobile navigation">
           <Container className="grid gap-1 py-3 sm:grid-cols-2">
             {links.map((link) => {
               const active = isActivePath(pathname, link.href);
@@ -96,11 +162,12 @@ export function NavBar() {
                 <Link
                   key={link.href}
                   href={link.href}
+                  tabIndex={isOpen ? undefined : -1}
                   aria-current={active ? "page" : undefined}
-                  onClick={() => setIsOpen(false)}
+                  onClick={closeMenu}
                   className={cn(
                     "rounded-control px-3.5 py-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-soft",
-                    active ? "bg-brand/10 text-brand-soft" : "text-ink-muted hover:bg-white/[0.05] hover:text-ink",
+                    active ? "bg-brand/10 text-brand-soft" : "text-ink-muted hover:bg-ink/[0.05] hover:text-ink",
                   )}
                 >
                   {link.label}
@@ -109,7 +176,7 @@ export function NavBar() {
             })}
           </Container>
         </nav>
-      )}
+      </div>
     </header>
   );
 }

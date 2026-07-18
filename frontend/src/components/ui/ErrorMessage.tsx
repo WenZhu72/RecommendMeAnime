@@ -6,7 +6,7 @@ export function ErrorMessage({
   return (
     <div
       role="alert"
-      className="flex items-start gap-3 rounded-card border border-danger/25 bg-danger/[0.07] px-5 py-4 text-sm leading-6 text-rose-100"
+      className="flex items-start gap-3 rounded-card border border-danger/25 bg-danger/[0.07] px-5 py-4 text-sm leading-6 text-danger-ink"
     >
       <span
         aria-hidden="true"

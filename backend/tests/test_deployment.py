@@ -146,6 +146,64 @@ class FailingAniListClient:
         raise self.error
 
 
+class RecordingAniListClient:
+    def __init__(self) -> None:
+        self.parameters: dict[str, object] = {}
+        self.calls: list[dict[str, object]] = []
+
+    async def list_media(self, **parameters: object) -> dict[str, object]:
+        if not self.parameters:
+            self.parameters = parameters
+        self.calls.append(parameters)
+        page = int(parameters["page"])
+        per_page = int(parameters["per_page"])
+        total = 61
+        item_count = max(0, min(per_page, total - (page - 1) * per_page))
+        return {
+            "pageInfo": {
+                "total": total,
+                "currentPage": page,
+                "lastPage": 4,
+                "hasNextPage": page < 4,
+                "perPage": per_page,
+            },
+            "media": [
+                {
+                    "id": (page - 1) * per_page + index + 1,
+                    "title": {"english": f"Result {(page - 1) * per_page + index + 1}"},
+                }
+                for index in range(item_count)
+            ],
+        }
+
+
+class DegradedSearchPageInfoClient:
+    def __init__(self) -> None:
+        self.pages: list[int] = []
+
+    async def list_media(self, **parameters: object) -> dict[str, object]:
+        page = int(parameters["page"])
+        per_page = int(parameters["per_page"])
+        self.pages.append(page)
+        item_count = 20 if page == 1 else 6 if page == 2 else 0
+        return {
+            "pageInfo": {
+                "total": 5000 if page == 1 else 26,
+                "currentPage": page,
+                "lastPage": 250 if page == 1 else page,
+                "hasNextPage": page == 1,
+                "perPage": per_page,
+            },
+            "media": [
+                {
+                    "id": (page - 1) * per_page + index + 1,
+                    "title": {"english": f"Naruto result {(page - 1) * per_page + index + 1}"},
+                }
+                for index in range(item_count)
+            ],
+        }
+
+
 class DetailAniListClient:
     async def get_media(self, anime_id: int) -> dict[str, object] | None:
         if anime_id != 21:
@@ -198,6 +256,7 @@ def test_invalid_search_parameters_are_stable_and_frontend_response_is_compatibl
                 "titles": {"english": "Example Anime", "romaji": None, "native": None},
                 "description": None,
                 "coverImage": "https://s4.anilist.co/example.jpg",
+                "color": None,
                 "bannerImage": None,
                 "averageScore": None,
                 "meanScore": None,
@@ -224,6 +283,76 @@ def test_invalid_search_parameters_are_stable_and_frontend_response_is_compatibl
     }
 
 
+def test_browse_forwards_search_filters_and_pagination_to_anilist() -> None:
+    recording_client = RecordingAniListClient()
+    application = create_app(get_settings({}))
+    application.dependency_overrides[get_anilist_client] = lambda: recording_client
+
+    with TestClient(application) as client:
+        response = client.get(
+            "/api/anime/browse",
+            params=[
+                ("search", "Frieren"),
+                ("genre", "Fantasy"),
+                ("genre", "Adventure"),
+                ("format", "TV"),
+                ("minimum_score", "80"),
+                ("sort", "top-rated"),
+                ("page", "3"),
+                ("per_page", "20"),
+            ],
+        )
+        invalid_page_size = client.get("/api/anime/browse", params={"per_page": 51})
+
+    assert response.status_code == 200
+    assert response.json()["pageInfo"] == {
+        "currentPage": 3,
+        "hasNextPage": True,
+        "lastPage": 4,
+        "perPage": 20,
+        "total": 61,
+    }
+    assert recording_client.parameters == {
+        "page": 3,
+        "per_page": 20,
+        "search": "Frieren",
+        "genre": None,
+        "genre_in": ["Fantasy", "Adventure"],
+        "anime_format": "TV",
+        "format_in": None,
+        "season": None,
+        "season_year": None,
+        "minimum_score": 80,
+        "sort": ["SCORE_DESC", "POPULARITY_DESC"],
+    }
+    assert [int(call["page"]) for call in recording_client.calls] == [3, 4]
+    assert recording_client.calls[1] == {**recording_client.parameters, "page": 4}
+    assert invalid_page_size.status_code == 400
+
+
+def test_browse_repairs_degraded_anilist_search_page_info() -> None:
+    degraded_client = DegradedSearchPageInfoClient()
+    application = create_app(get_settings({}))
+    application.dependency_overrides[get_anilist_client] = lambda: degraded_client
+
+    with TestClient(application) as client:
+        response = client.get(
+            "/api/anime/browse",
+            params={"search": "Naruto", "page": 1, "per_page": 20},
+        )
+
+    assert response.status_code == 200
+    assert len(response.json()["items"]) == 20
+    assert response.json()["pageInfo"] == {
+        "currentPage": 1,
+        "hasNextPage": True,
+        "lastPage": 2,
+        "perPage": 20,
+        "total": 26,
+    }
+    assert degraded_client.pages == [1, 2]
+
+
 def test_anime_detail_response_is_frontend_compatible_and_missing_anime_is_404() -> None:
     application = create_app(get_settings({}))
     application.dependency_overrides[get_anilist_client] = lambda: DetailAniListClient()
@@ -239,6 +368,7 @@ def test_anime_detail_response_is_frontend_compatible_and_missing_anime_is_404()
         "titles": {"english": "ONE PIECE", "romaji": "ONE PIECE", "native": "ONE PIECE"},
         "description": "A pirate adventure.",
         "coverImage": "https://s4.anilist.co/example.jpg",
+        "color": None,
         "bannerImage": None,
         "averageScore": None,
         "meanScore": None,

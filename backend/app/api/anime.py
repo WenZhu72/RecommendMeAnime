@@ -68,18 +68,22 @@ async def browse_anime(
     client: Client,
     page: Page = 1,
     per_page: PerPage = 20,
-    genre: Annotated[str | None, Query(max_length=64)] = None,
+    search: Annotated[str | None, Query(max_length=100, description="Optional title search.")] = None,
+    genres: Annotated[list[str] | None, Query(alias="genre")] = None,
     anime_format: Annotated[AnimeFormat | None, Query(alias="format")] = None,
     season: AnimeSeason | None = None,
     season_year: Annotated[int | None, Query(ge=1940, le=2100)] = None,
     minimum_score: Annotated[int | None, Query(ge=0, le=100)] = None,
     sort: BrowseSort = "popular",
 ) -> AnimeListResponse:
-    cleaned_genre = genre.strip() if genre else None
-    if genre and not cleaned_genre:
-        raise HTTPException(status_code=400, detail="Genre cannot be blank.")
+    cleaned_search = _required_query(search) if search is not None else None
+    cleaned_genres = [genre.strip() for genre in (genres or [])]
+    if any(not genre or len(genre) > 64 for genre in cleaned_genres):
+        raise HTTPException(status_code=400, detail="Genres must contain between 1 and 64 characters.")
+    if len(cleaned_genres) > 10:
+        raise HTTPException(status_code=400, detail="A maximum of 10 genres can be selected.")
     return await get_anime_list(
-        client, page=page, per_page=per_page, genre=cleaned_genre,
+        client, page=page, per_page=per_page, search=cleaned_search, genre_in=cleaned_genres or None,
         anime_format=anime_format, season=season, season_year=season_year,
         minimum_score=minimum_score, sort=SORTS[sort],
     )

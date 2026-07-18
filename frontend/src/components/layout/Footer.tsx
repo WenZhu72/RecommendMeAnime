@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { ExternalLinkIcon, SparklesIcon } from "@/components/ui/Icons";
+import { ExternalLinkIcon } from "@/components/ui/Icons";
 import { Container } from "./Container";
 
 const footerLinks = [
@@ -17,11 +17,8 @@ export function Footer() {
         <div>
           <Link
             href="/"
-            className="inline-flex items-center gap-2 rounded-md text-sm font-semibold text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-soft"
+            className="inline-flex rounded-md text-sm font-semibold text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-soft"
           >
-            <span className="flex size-7 items-center justify-center rounded-lg bg-brand/15 text-brand-soft">
-              <SparklesIcon className="size-3.5" />
-            </span>
             RecommendMeAnime
           </Link>
           <p className="mt-3 max-w-md text-sm leading-6 text-ink-muted">
