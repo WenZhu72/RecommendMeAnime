@@ -187,6 +187,106 @@ html.light {
     );
 }
 
+/* Homepage hero: isolated composition and carousel geometry. */
+.home-hero {
+  background:
+    radial-gradient(circle at 14% 18%, color-mix(in srgb, var(--color-brand) 13%, transparent), transparent 28rem),
+    radial-gradient(circle at 84% 45%, color-mix(in srgb, var(--color-brand) 10%, transparent), transparent 26rem),
+    linear-gradient(to bottom, color-mix(in srgb, var(--color-canvas-soft) 36%, transparent), transparent 72%);
+}
+
+.hero-recommendation-stage {
+  --hero-drag-progress: 0;
+  --hero-transition-distance: 0px;
+  overflow: clip;
+  perspective: 1200px;
+  transform-style: preserve-3d;
+  cursor: grab;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.hero-recommendation-stage :is(a, button) {
+  cursor: inherit;
+}
+
+.hero-recommendation-stage[data-dragging="true"] {
+  cursor: grabbing;
+}
+
+.hero-recommendation-stage[data-dragging="true"] .hero-recommendation-slide,
+.hero-recommendation-stage[data-settling="true"] .hero-recommendation-slide {
+  transition: none;
+}
+
+.hero-recommendation-slide {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: clamp(14rem, 65vw, 19rem);
+  z-index: var(--hero-card-z-index, 1);
+  opacity: var(--hero-card-opacity, 0.08);
+  filter:
+    saturate(var(--hero-card-saturation, 0.55))
+    brightness(var(--hero-card-brightness, 0.52));
+  transform:
+    translate3d(
+      calc(-50% + var(--hero-card-x, 0px)),
+      var(--hero-card-y, 0px),
+      var(--hero-card-z, 0px)
+    )
+    rotateY(var(--hero-card-rotation, 0deg))
+    scale(var(--hero-card-scale, 0.72));
+  transform-style: preserve-3d;
+  transition:
+    transform 700ms var(--ease-product),
+    opacity 500ms var(--ease-product),
+    filter 500ms var(--ease-product);
+  will-change: transform, opacity;
+}
+
+.hero-recommendation-card {
+  border-color: color-mix(in srgb, var(--hero-card-accent) 34%, var(--color-line));
+  box-shadow:
+    0 32px 78px -38px color-mix(in srgb, var(--hero-card-accent) 38%, transparent),
+    0 32px 72px -34px rgb(0 0 0 / 0.92);
+}
+
+.hero-recommendation-slide[data-visually-active="true"] .hero-recommendation-card:hover {
+  border-color: color-mix(in srgb, var(--hero-card-accent) 52%, var(--color-line));
+  box-shadow:
+    0 36px 88px -36px color-mix(in srgb, var(--hero-card-accent) 48%, transparent),
+    0 38px 80px -36px rgb(0 0 0 / 0.96);
+}
+
+.hero-recommendation-stage[data-dragging="true"] .hero-recommendation-card,
+.hero-recommendation-stage[data-settling="true"] .hero-recommendation-card {
+  transform: none;
+}
+
+.hero-recommendation-content {
+  animation: hero-recommendation-content-in 220ms var(--ease-product) both;
+}
+
+@keyframes hero-recommendation-content-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.35rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (min-width: 64rem) {
+  .hero-recommendation-slide {
+    width: 19rem;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;

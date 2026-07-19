@@ -3,7 +3,8 @@ import { Container } from "@/components/layout/Container";
 import { AnimeGrid } from "@/components/search/AnimeGrid";
 import { ErrorMessage } from "@/components/ui/ErrorMessage";
 import { SectionHeader } from "@/components/ui/SectionHeader";
-import { getPopularAnime, getTrendingAnime } from "@/lib/api/anime";
+import { getPopularAnime, getTopRatedAnime, getTrendingAnime } from "@/lib/api/anime";
+import { selectFallbackHeroAnime } from "@/lib/hero-recommendations";
 
 export const dynamic = "force-dynamic";
 
@@ -18,12 +19,23 @@ async function loadHomeAnime() {
   };
 }
 
+async function loadHeroFallbackAnime() {
+  try {
+    return selectFallbackHeroAnime(await getTopRatedAnime({ perPage: 50 }));
+  } catch {
+    return [];
+  }
+}
+
 export default async function Home() {
-  const { trending, popular } = await loadHomeAnime();
+  const [{ trending, popular }, heroFallback] = await Promise.all([
+    loadHomeAnime(),
+    loadHeroFallbackAnime(),
+  ]);
 
   return (
     <>
-      <Hero featured={trending ?? []} />
+      <Hero fallbackRecommendations={heroFallback} />
       <Container className="space-y-16 py-14 sm:space-y-20 sm:py-20">
         <section>
           <SectionHeader

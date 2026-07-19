@@ -36,14 +36,17 @@ This separation is intentional for future accounts and personalization:
 - Updates `color-scheme` and the browser theme color.
 - Uses semantic sun/moon icons with an accessible control label.
 
-`src/components/home/AnimeCarousel.tsx`
+`src/components/home/HeroCarousel.tsx`
 
-- Accepts an arbitrary `Anime[]` and an optional interval/label.
-- Rotates every five seconds by default.
+- Accepts a curated fallback `Anime[]` and an optional autoplay interval.
+- Reads saved recommendation preferences in the browser and replaces fallback titles only when personalized results succeed.
+- Stores up to 24 unique recommendations while mounting only the previous, active, and next cards.
+- Uses one pointer-capture interaction path for mouse dragging, touch swiping, and pen input.
+- Applies a damped spring for completed swipes and snap-back gestures without re-rendering on every pointer move.
+- Rotates every six seconds by default.
 - Pauses on pointer hover, keyboard focus, explicit pause, reduced motion, or an inactive tab.
-- Preloads current and next artwork; remaining images keep lazy loading.
-- Keeps a fixed aspect ratio while images load to avoid layout shift.
-- Exposes accessible pagination controls and a pause/resume control.
+- Uses only `coverImage` in a fixed 2:3 poster frame; it never substitutes `bannerImage`.
+- Exposes accessible previous, next, pagination, and pause/resume controls.
 
 `src/components/browse/GenreDropdown.tsx`
 
@@ -60,7 +63,7 @@ This separation is intentional for future accounts and personalization:
 
 ### Refactored shared components
 
-`NavBar` owns global navigation, active state, mobile expansion, theme control, and scroll visibility. `Hero` owns homepage copy/actions and composes `AnimeCarousel`. `BrowseFilters` owns URL-backed catalogue controls. `Pagination` changes only the page parameter and handles pending results state. `AnimeCard` and `AnimeGrid` remain the canonical catalogue presentation across home, browse, search, watchlist, related titles, and recommendation results.
+`NavBar` owns global navigation, active state, mobile expansion, theme control, and scroll visibility. `Hero` owns homepage copy/actions and composes hero-specific `HeroSearch` and `HeroCarousel` components. `BrowseFilters` owns URL-backed catalogue controls. `Pagination` changes only the page parameter and handles pending results state. `AnimeCard` and `AnimeGrid` remain the canonical catalogue presentation across home, browse, search, watchlist, related titles, and recommendation results.
 
 The primitive layer remains in `src/components/ui`:
 
@@ -80,17 +83,18 @@ The storage key is `recommend-me-anime-theme`. The document receives both `data-
 
 The reduced-motion block in `src/app/globals.css` shortens global transitions and animations. Stateful components also avoid autoplay or nonessential scroll motion when reduced motion is requested.
 
-## Carousel and future personalization
+## Hero recommendations and personalization
 
-`src/app/page.tsx` currently passes the trending response to `Hero`, and `Hero` passes that array directly to `AnimeCarousel`.
+`src/app/page.tsx` fetches a hero-only top-rated pool in parallel with the unchanged Trending and Popular requests. `src/lib/hero-recommendations.ts` requires a score of at least 85, popularity of at least 10,000, complete poster metadata, and randomly samples up to 24 unique titles.
 
 ```text
-getTrendingAnime()
-  -> Hero featured={trending}
-  -> AnimeCarousel items={featured}
+getTopRatedAnime()
+  -> selectFallbackHeroAnime()
+  -> Hero fallbackRecommendations={heroFallback}
+  -> HeroCarousel fallbackItems={fallbackRecommendations}
 ```
 
-There is no trending-specific fetch, ranking rule, or label lookup inside the carousel. A future authenticated page can pass a personalized array from a recommendation endpoint with the same `Anime` shape. If source-specific copy is needed, make the existing `label` or a future eyebrow prop configurable; do not add recommendation fetching to the visual component.
+When saved questionnaire preferences exist, `HeroCarousel` requests recommendations and swaps them in only after valid poster results return. Until then, and whenever that request fails, the fallback label remains explicitly community-based. Carousel copy never claims that fallback titles are personalized.
 
 ## Dynamic detail fade
 
@@ -163,7 +167,12 @@ The main visual source of truth is `src/app/globals.css`. Its token sections are
 | Catalogue labels/options | `src/config/catalogue.ts` | genres, formats, seasons, sorts, years |
 | Buttons and control sizes | `src/components/ui/Button.tsx`, `src/components/ui/Input.tsx` | variant and size maps, `fieldStyles` |
 | Card columns and gaps | `src/components/search/AnimeGrid.tsx` | responsive grid classes |
-| Carousel timing | `src/components/home/AnimeCarousel.tsx` | `intervalMs` default |
+| Hero colours and glow | `src/app/globals.css` | `.home-hero`, `.hero-recommendation-card` |
+| Hero spacing and typography | `src/components/home/Hero.tsx` | hero grid, heading, and copy utilities |
+| Hero search styling | `src/components/home/HeroSearch.tsx` | form surface and focus/hover utilities |
+| Carousel geometry and perspective | `src/app/globals.css` | `.hero-recommendation-*` rules |
+| Carousel timing, gestures, and spring | `src/components/home/HeroCarousel.tsx` | autoplay, swipe-threshold/velocity, stiffness, and damping constants |
+| Hero recommendation rules | `src/lib/hero-recommendations.ts` | exported score, popularity, and item-limit constants |
 | Navbar scroll thresholds | `src/components/layout/NavBar.tsx` | `TOP_LOCK_PX`, `SCROLL_THRESHOLD_PX` |
 
 When changing the palette, edit semantic tokens rather than searching for raw colors. Explicit black/white values that remain in components are image overlays or text rendered directly over artwork, where their role is independent of the website theme.
