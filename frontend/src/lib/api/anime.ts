@@ -3,6 +3,10 @@ import { buildBrowseAnimePath } from "@/lib/browse-path";
 import type { Anime, AnimeListResponse } from "@/types/anime";
 
 type PageOptions = { page?: number; perPage?: number };
+type HeroFallbackCandidateOptions = Required<PageOptions> & {
+  minimumScore: number;
+  revalidateSeconds: number;
+};
 type BrowseOptions = PageOptions & {
   search?: string;
   genre?: string;
@@ -33,6 +37,20 @@ export async function getPopularAnime(options?: PageOptions): Promise<Anime[]> {
 
 export async function getTopRatedAnime(options?: PageOptions): Promise<Anime[]> {
   return (await getList("/api/anime/top-rated", options)).items;
+}
+
+export async function getHeroFallbackCandidatePage(
+  options: HeroFallbackCandidateOptions,
+): Promise<AnimeListResponse> {
+  return apiRequest<AnimeListResponse>(
+    buildBrowseAnimePath({
+      page: options.page,
+      perPage: options.perPage,
+      minimumScore: options.minimumScore,
+      sort: "top-rated",
+    }),
+    { revalidate: options.revalidateSeconds },
+  );
 }
 
 export async function getAnimeByGenre(genre: string, options?: PageOptions): Promise<Anime[]> {

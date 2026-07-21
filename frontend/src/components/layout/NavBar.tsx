@@ -6,6 +6,11 @@ import { useEffect, useRef, useState } from "react";
 
 import { MenuIcon, SearchIcon, XIcon } from "@/components/ui/Icons";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import {
+  createNavScrollTracker,
+  getNavScrollHiddenState,
+  resetNavScrollTracker,
+} from "@/lib/nav-scroll-logic";
 import { cn } from "@/lib/utils";
 import { Container } from "./Container";
 
@@ -26,44 +31,47 @@ function isActivePath(pathname: string, href: string): boolean {
 
 export function NavBar() {
   const pathname = usePathname();
-  const headerRef = useRef<HTMLElement>(null);
-  const previousScroll = useRef(0);
-  const frame = useRef<number | null>(null);
+  const lastInputWasPointer = useRef(false);
   const [isOpen, setIsOpen] = useState(false);
   const [isHidden, setIsHidden] = useState(false);
-  const [hasFocus, setHasFocus] = useState(false);
+  const [hasKeyboardFocus, setHasKeyboardFocus] = useState(false);
 
   useEffect(() => {
-    previousScroll.current = window.scrollY;
+    function markPointerInput() {
+      lastInputWasPointer.current = true;
+    }
 
-    function updateVisibility() {
-      frame.current = null;
+    function markKeyboardInput() {
+      lastInputWasPointer.current = false;
+    }
+
+    document.addEventListener("pointerdown", markPointerInput, { capture: true, passive: true });
+    document.addEventListener("keydown", markKeyboardInput, { capture: true });
+    return () => {
+      document.removeEventListener("pointerdown", markPointerInput, { capture: true });
+      document.removeEventListener("keydown", markKeyboardInput, { capture: true });
+    };
+  }, []);
+
+  useEffect(() => {
+    const scrollTracker = createNavScrollTracker(window.scrollY);
+
+    function onScroll() {
       const currentScroll = Math.max(window.scrollY, 0);
-      const delta = currentScroll - previousScroll.current;
 
-      if (currentScroll <= TOP_LOCK_PX || isOpen || hasFocus) {
+      if (currentScroll <= TOP_LOCK_PX || isOpen || hasKeyboardFocus) {
         setIsHidden(false);
-      } else if (Math.abs(delta) >= SCROLL_THRESHOLD_PX) {
-        setIsHidden(delta > 0);
-        previousScroll.current = currentScroll;
+        resetNavScrollTracker(scrollTracker, currentScroll);
         return;
       }
 
-      if (Math.abs(delta) >= SCROLL_THRESHOLD_PX || currentScroll <= TOP_LOCK_PX) {
-        previousScroll.current = currentScroll;
-      }
+      const nextHiddenState = getNavScrollHiddenState(scrollTracker, currentScroll, SCROLL_THRESHOLD_PX);
+      if (nextHiddenState !== null) setIsHidden(nextHiddenState);
     }
 
-    function onScroll() {
-      if (frame.current === null) frame.current = window.requestAnimationFrame(updateVisibility);
-    }
-
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      if (frame.current !== null) window.cancelAnimationFrame(frame.current);
-    };
-  }, [hasFocus, isOpen]);
+    document.addEventListener("scroll", onScroll, { capture: true, passive: true });
+    return () => document.removeEventListener("scroll", onScroll, { capture: true });
+  }, [hasKeyboardFocus, isOpen]);
 
   function closeMenu() {
     setIsOpen(false);
@@ -72,20 +80,23 @@ export function NavBar() {
 
   return (
     <header
-      ref={headerRef}
       className={cn(
         "sticky top-0 z-40 border-b border-line/80 bg-canvas/88 backdrop-blur-xl",
         "transition-transform duration-300 ease-product will-change-transform",
         isHidden && "-translate-y-full",
       )}
-      onFocusCapture={() => {
-        setHasFocus(true);
+      onFocusCapture={(event) => {
+        const isKeyboardFocus =
+          !lastInputWasPointer.current && event.target instanceof Element && event.target.matches(":focus-visible");
+        setHasKeyboardFocus(isKeyboardFocus);
         setIsHidden(false);
       }}
       onBlurCapture={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setHasFocus(false);
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setHasKeyboardFocus(false);
       }}
       onKeyDown={(event) => {
+        setHasKeyboardFocus(true);
+        setIsHidden(false);
         if (event.key === "Escape" && isOpen) closeMenu();
       }}
     >

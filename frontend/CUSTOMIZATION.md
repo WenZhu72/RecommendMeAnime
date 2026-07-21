@@ -40,9 +40,10 @@ This separation is intentional for future accounts and personalization:
 
 - Accepts a curated fallback `Anime[]` and an optional autoplay interval.
 - Reads saved recommendation preferences in the browser and replaces fallback titles only when personalized results succeed.
-- Stores up to 24 unique recommendations while mounting only the previous, active, and next cards.
-- Uses one pointer-capture interaction path for mouse dragging, touch swiping, and pen input.
-- Applies a damped spring for completed swipes and snap-back gestures without re-rendering on every pointer move.
+- Stores up to 24 unique recommendations and renders a bounded virtual window for multi-card momentum.
+- Delegates press, intent, drag, and settlement transitions to a typed interaction hook shared by mouse, touch, and pen input.
+- Captures only confirmed horizontal drags, preserves native vertical touch scrolling, and updates motion through animation frames rather than React renders.
+- Projects recent pointer velocity for multi-card flicks, then uses a damped spring for physical settlement and snap-back gestures.
 - Rotates every six seconds by default.
 - Pauses on pointer hover, keyboard focus, explicit pause, reduced motion, or an inactive tab.
 - Uses only `coverImage` in a fixed 2:3 poster frame; it never substitutes `bannerImage`.
@@ -110,7 +111,7 @@ The result transitions the banner into the details surface rather than fading ev
 
 ## Auto-hiding navigation
 
-`NavBar.tsx` records the last meaningful scroll position and uses a request-animation-frame scroll handler.
+`NavBar.tsx` uses a passive scroll handler that tracks direction and accumulates movement from the point where that direction began.
 
 - It stays visible within 72px of the document top.
 - It ignores movement smaller than the 12px threshold to prevent flicker.

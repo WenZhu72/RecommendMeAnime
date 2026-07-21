@@ -1,9 +1,13 @@
+import { selectHeroFallbackCandidates } from "@/lib/hero-fallback";
 import type { Anime } from "@/types/anime";
 import type { RecommendationPreferences } from "@/types/recommendation";
 
 export const HERO_RECOMMENDATION_LIMIT = 24;
 export const HERO_FALLBACK_MINIMUM_SCORE = 85;
 export const HERO_FALLBACK_MINIMUM_POPULARITY = 10_000;
+export const HERO_FALLBACK_RANDOM_PAGE_COUNT = 5;
+export const HERO_FALLBACK_CANDIDATES_PER_PAGE = 50;
+export const HERO_FALLBACK_CACHE_SECONDS = 3600;
 
 function hasCompletePosterMetadata(anime: Anime): boolean {
   return Boolean(
@@ -19,24 +23,18 @@ export function selectFallbackHeroAnime(
   anime: Anime[],
   random: () => number = Math.random,
 ): Anime[] {
-  const seen = new Set<number>();
-  const eligible = anime.filter((item) => {
-    const valid = !seen.has(item.id)
-      && hasCompletePosterMetadata(item)
+  return selectHeroFallbackCandidates(
+    anime,
+    (item) => (
+      hasCompletePosterMetadata(item)
       && item.averageScore !== null
       && item.averageScore >= HERO_FALLBACK_MINIMUM_SCORE
       && item.popularity !== null
-      && item.popularity >= HERO_FALLBACK_MINIMUM_POPULARITY;
-    if (valid) seen.add(item.id);
-    return valid;
-  });
-
-  for (let index = eligible.length - 1; index > 0; index -= 1) {
-    const randomIndex = Math.floor(random() * (index + 1));
-    [eligible[index], eligible[randomIndex]] = [eligible[randomIndex], eligible[index]];
-  }
-
-  return eligible.slice(0, HERO_RECOMMENDATION_LIMIT);
+      && item.popularity >= HERO_FALLBACK_MINIMUM_POPULARITY
+    ),
+    HERO_RECOMMENDATION_LIMIT,
+    random,
+  );
 }
 
 export function selectPersonalizedHeroAnime(anime: Anime[]): Anime[] {

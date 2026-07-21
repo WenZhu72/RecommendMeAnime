@@ -117,13 +117,13 @@ def _has_next_page(raw: Mapping[str, object]) -> bool:
     return bool(info.get("hasNextPage"))
 
 
-async def _search_page_info(
+async def _filtered_page_info(
     client: AniListClient,
     raw_page: Mapping[str, object],
     *,
     page: int,
     per_page: int,
-    search: str,
+    search: str | None,
     genre: str | None,
     genre_in: list[str] | None,
     anime_format: str | None,
@@ -133,12 +133,13 @@ async def _search_page_info(
     minimum_score: int | None,
     sort: list[str] | None,
 ) -> PageInfo:
-    """Resolve accurate search totals from AniList's reliable page boundary.
+    """Resolve accurate filtered totals from AniList's reliable page boundary.
 
     AniList documents ``total`` and ``lastPage`` as degraded fields. Its
-    ``hasNextPage`` value remains reliable, so title searches locate the first
-    page without a successor and derive the exact total from that final page.
-    Probes use the same filters and sort values as the requested response.
+    ``hasNextPage`` value remains reliable, so title and minimum-score filters
+    locate the first page without a successor and derive the exact total from
+    that final page. Probes use the same filters and sort values as the
+    requested response.
     """
 
     pages: dict[int, Mapping[str, object]] = {page: raw_page}
@@ -242,7 +243,7 @@ async def get_anime_list(
     )
     media = _page_media(raw_page)
     page_info = (
-        await _search_page_info(
+        await _filtered_page_info(
             client,
             raw_page,
             page=page,
@@ -257,7 +258,7 @@ async def get_anime_list(
             minimum_score=minimum_score,
             sort=sort,
         )
-        if search
+        if search is not None or minimum_score is not None
         else _page_info(raw_page, page, per_page)
     )
     return AnimeListResponse(

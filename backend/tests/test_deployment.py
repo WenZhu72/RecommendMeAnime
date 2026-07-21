@@ -204,6 +204,34 @@ class DegradedSearchPageInfoClient:
         }
 
 
+class DegradedScorePageInfoClient:
+    def __init__(self) -> None:
+        self.pages: list[int] = []
+
+    async def list_media(self, **parameters: object) -> dict[str, object]:
+        page = int(parameters["page"])
+        per_page = int(parameters["per_page"])
+        self.pages.append(page)
+        item_count = 50 if page < 3 else 9 if page == 3 else 0
+        return {
+            "pageInfo": {
+                "total": 5000 if page == 1 else 109,
+                "currentPage": page,
+                "lastPage": 100 if page == 1 else page,
+                "hasNextPage": page < 3,
+                "perPage": per_page,
+            },
+            "media": [
+                {
+                    "id": (page - 1) * per_page + index + 1,
+                    "title": {"english": f"High-score result {(page - 1) * per_page + index + 1}"},
+                    "averageScore": 85,
+                }
+                for index in range(item_count)
+            ],
+        }
+
+
 class DetailAniListClient:
     async def get_media(self, anime_id: int) -> dict[str, object] | None:
         if anime_id != 21:
@@ -351,6 +379,29 @@ def test_browse_repairs_degraded_anilist_search_page_info() -> None:
         "total": 26,
     }
     assert degraded_client.pages == [1, 2]
+
+
+def test_browse_repairs_degraded_anilist_score_filter_page_info() -> None:
+    degraded_client = DegradedScorePageInfoClient()
+    application = create_app(get_settings({}))
+    application.dependency_overrides[get_anilist_client] = lambda: degraded_client
+
+    with TestClient(application) as client:
+        response = client.get(
+            "/api/anime/browse",
+            params={"minimum_score": 85, "sort": "top-rated", "page": 1, "per_page": 50},
+        )
+
+    assert response.status_code == 200
+    assert len(response.json()["items"]) == 50
+    assert response.json()["pageInfo"] == {
+        "currentPage": 1,
+        "hasNextPage": True,
+        "lastPage": 3,
+        "perPage": 50,
+        "total": 109,
+    }
+    assert degraded_client.pages == [1, 2, 4, 3]
 
 
 def test_anime_detail_response_is_frontend_compatible_and_missing_anime_is_404() -> None:

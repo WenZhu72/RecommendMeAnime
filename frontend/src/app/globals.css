@@ -198,13 +198,33 @@ html.light {
 .hero-recommendation-stage {
   --hero-drag-progress: 0;
   --hero-transition-distance: 0px;
-  overflow: clip;
   perspective: 1200px;
+  transform: translateX(-50%);
   transform-style: preserve-3d;
   cursor: grab;
   touch-action: pan-y;
   user-select: none;
   -webkit-user-select: none;
+}
+
+.hero-recommendation-viewport {
+  --hero-carousel-edge-fade: clamp(0.9rem, 4vw, 2rem);
+  overflow: clip;
+  transform-style: preserve-3d;
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    black var(--hero-carousel-edge-fade),
+    black calc(100% - var(--hero-carousel-edge-fade)),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    black var(--hero-carousel-edge-fade),
+    black calc(100% - var(--hero-carousel-edge-fade)),
+    transparent 100%
+  );
 }
 
 .hero-recommendation-stage :is(a, button) {
@@ -224,9 +244,11 @@ html.light {
   position: absolute;
   top: 0;
   left: 50%;
-  width: clamp(14rem, 65vw, 19rem);
+  width: clamp(14rem, 62vw, 19rem);
   z-index: var(--hero-card-z-index, 1);
-  opacity: var(--hero-card-opacity, 0.08);
+  visibility: var(--hero-card-visibility, hidden);
+  opacity: var(--hero-card-opacity, 0);
+  pointer-events: var(--hero-card-pointer-events, none);
   filter:
     saturate(var(--hero-card-saturation, 0.55))
     brightness(var(--hero-card-brightness, 0.52));
@@ -244,6 +266,10 @@ html.light {
     opacity 500ms var(--ease-product),
     filter 500ms var(--ease-product);
   will-change: transform, opacity;
+}
+
+.hero-recommendation-slide[inert] {
+  pointer-events: none;
 }
 
 .hero-recommendation-card {
@@ -282,6 +308,10 @@ html.light {
 }
 
 @media (min-width: 64rem) {
+  .hero-recommendation-stage {
+    transform: translateX(calc(-50% - 1rem));
+  }
+
   .hero-recommendation-slide {
     width: 19rem;
   }

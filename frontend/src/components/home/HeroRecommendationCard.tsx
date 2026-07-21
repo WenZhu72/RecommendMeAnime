@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import type { CSSProperties } from "react";
 
+import { getCarouselCardVisualState } from "@/lib/hero-carousel-logic";
 import { cn } from "@/lib/utils";
 import type { Anime } from "@/types/anime";
 
@@ -14,11 +15,22 @@ type HeroRecommendationCardProps = {
   onSelect: () => void;
 };
 
-const CARD_POSITION_PERCENT = 62;
+type HeroCardStyle = CSSProperties & {
+  "--hero-card-accent": string;
+  "--hero-card-x": string;
+  "--hero-card-y": string;
+  "--hero-card-z": string;
+  "--hero-card-rotation": string;
+  "--hero-card-scale": string;
+  "--hero-card-opacity": string;
+  "--hero-card-saturation": string;
+  "--hero-card-brightness": string;
+  "--hero-card-z-index": string;
+  "--hero-card-pointer-events": string;
+  "--hero-card-visibility": string;
+};
 
-function clamp(value: number, minimum: number, maximum: number): number {
-  return Math.min(maximum, Math.max(minimum, value));
-}
+const CARD_POSITION_PERCENT = 64;
 
 function formatMetadata(anime: Anime): string {
   return [
@@ -40,21 +52,21 @@ export function HeroRecommendationCard({
   priority = false,
   onSelect,
 }: HeroRecommendationCardProps) {
-  const distanceFromCentre = Math.abs(relativeIndex);
-  const sideProgress = Math.min(distanceFromCentre, 1);
-  const overflowProgress = Math.max(distanceFromCentre - 1, 0);
-  const accentStyle = {
+  const visualState = getCarouselCardVisualState(relativeIndex);
+  const accentStyle: HeroCardStyle = {
     "--hero-card-accent": artworkAccent(anime.color),
     "--hero-card-x": `${relativeIndex * CARD_POSITION_PERCENT}%`,
-    "--hero-card-y": `${(17.6 * sideProgress) + (7 * overflowProgress)}px`,
-    "--hero-card-z": `${(-80 * sideProgress) - (36 * overflowProgress)}px`,
-    "--hero-card-rotation": `${clamp(-relativeIndex * 8, -12, 12)}deg`,
-    "--hero-card-scale": String(clamp(1 - (0.16 * sideProgress) - (0.06 * overflowProgress), 0.72, 1)),
-    "--hero-card-opacity": String(clamp(1 - (0.48 * sideProgress) - (0.3 * overflowProgress), 0.08, 1)),
-    "--hero-card-saturation": String(clamp(1 - (0.3 * sideProgress) - (0.1 * overflowProgress), 0.55, 1)),
-    "--hero-card-brightness": String(clamp(1 - (0.28 * sideProgress) - (0.08 * overflowProgress), 0.52, 1)),
-    "--hero-card-z-index": String(Math.max(1, 30 - Math.round(distanceFromCentre * 10))),
-  } as CSSProperties;
+    "--hero-card-y": `${visualState.translateY}px`,
+    "--hero-card-z": `${visualState.translateZ}px`,
+    "--hero-card-rotation": `${visualState.rotation}deg`,
+    "--hero-card-scale": String(visualState.scale),
+    "--hero-card-opacity": String(visualState.opacity),
+    "--hero-card-saturation": String(visualState.saturation),
+    "--hero-card-brightness": String(visualState.brightness),
+    "--hero-card-z-index": String(visualState.zIndex),
+    "--hero-card-pointer-events": visualState.interactive ? "auto" : "none",
+    "--hero-card-visibility": visualState.visibilityHidden ? "hidden" : "visible",
+  };
 
   const poster = anime.coverImage ? (
     <Image
@@ -110,6 +122,7 @@ export function HeroRecommendationCard({
           <button
             type="button"
             onClick={onSelect}
+            tabIndex={visualState.interactive ? 0 : -1}
             className="absolute inset-0 block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-soft"
             aria-label={`Show ${anime.title}`}
           >
