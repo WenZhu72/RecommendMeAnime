@@ -187,19 +187,23 @@ export function BrowseDropdownPanel({
       aria-hidden={!open}
       inert={!open}
       className={cn(
-        "absolute z-30 overflow-y-auto rounded-card border border-line bg-surface shadow-panel",
+        "absolute z-30 rounded-card border border-line bg-surface shadow-panel",
         "transition-[opacity,transform,visibility] duration-200 ease-product will-change-[opacity,transform] motion-reduce:transition-none",
         alignEnd ? "right-0" : "left-0",
         openAbove ? "origin-bottom" : "origin-top",
         open
-          ? "visible translate-y-0 scale-100 opacity-100"
+          ? "visible overflow-y-auto translate-y-0 scale-100 opacity-100"
           : cn(
-              "invisible pointer-events-none scale-[0.98] opacity-0",
+              "invisible pointer-events-none max-h-0 overflow-hidden scale-[0.98] opacity-0",
               openAbove ? "translate-y-1" : "-translate-y-1",
             ),
         className,
       )}
-      style={{ ...style, ...panelPosition, maxHeight }}
+      style={{
+        ...style,
+        ...panelPosition,
+        maxHeight: open ? maxHeight : 0,
+      }}
       {...props}
     >
       {children}

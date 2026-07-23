@@ -4,23 +4,24 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef } from "react";
 
 import { useBrowseNavigation } from "@/components/browse/BrowseNavigation";
+import { useBrowsePaginationMetadata } from "@/components/browse/BrowsePaginationMetadata";
 import { Button } from "@/components/ui/Button";
 import { ArrowLeftIcon, ArrowRightIcon } from "@/components/ui/Icons";
-import type { AnimePageInfo } from "@/types/anime";
+import { buildBrowsePageLocation } from "@/lib/browse-path";
+import { formatBrowsePagination } from "@/lib/pagination";
 
 type PaginationProps = {
-  pageInfo: AnimePageInfo;
   scrollTargetId?: string;
 };
 
 const SCROLL_REQUEST_KEY = "recommendmeanime-pagination-scroll-target";
 
-export function Pagination({ pageInfo, scrollTargetId = "browse-results" }: PaginationProps) {
+export function Pagination({ scrollTargetId = "browse-results" }: PaginationProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { isPending, navigate } = useBrowseNavigation();
+  const pageInfo = useBrowsePaginationMetadata();
   const requestedPage = useRef<number | null>(null);
-  const hasPreviousPage = pageInfo.currentPage > 1;
 
   useEffect(() => {
     requestedPage.current = null;
@@ -31,18 +32,24 @@ export function Pagination({ pageInfo, scrollTargetId = "browse-results" }: Pagi
     window.requestAnimationFrame(() => {
       document.getElementById(scrollTargetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
-  }, [pageInfo.currentPage, scrollTargetId]);
+  }, [pageInfo?.currentPage, scrollTargetId]);
+
+  if (!pageInfo) return null;
+  const currentPageInfo = pageInfo;
+  const hasPreviousPage = currentPageInfo.currentPage > 1;
+  const display = formatBrowsePagination(currentPageInfo);
 
   function goToPage(page: number) {
-    if (isPending || requestedPage.current !== null || page < 1 || page > pageInfo.lastPage) return;
+    if (
+      isPending
+      || requestedPage.current !== null
+      || page < 1
+      || (page > currentPageInfo.currentPage && !currentPageInfo.hasNextPage)
+    ) return;
 
     requestedPage.current = page;
-    const parameters = new URLSearchParams(searchParams.toString());
-    if (page === 1) parameters.delete("page");
-    else parameters.set("page", String(page));
-
     window.sessionStorage.setItem(SCROLL_REQUEST_KEY, scrollTargetId);
-    navigate(`${pathname}${parameters.size ? `?${parameters.toString()}` : ""}`);
+    navigate(buildBrowsePageLocation(pathname, searchParams, page));
   }
 
   return (
@@ -52,31 +59,26 @@ export function Pagination({ pageInfo, scrollTargetId = "browse-results" }: Pagi
       aria-busy={isPending}
     >
       <p className="text-sm text-ink-muted" aria-live="polite">
-        {isPending
-          ? "Loading another page..."
-          : `Page ${pageInfo.currentPage} of ${Math.max(pageInfo.lastPage, 1)}`}
-        {pageInfo.total > 0 && !isPending && (
-          <span className="text-ink-faint"> / {pageInfo.total.toLocaleString()} titles</span>
-        )}
+        {isPending ? "Loading another page..." : display.pageSummary}
       </p>
       <div className="flex items-center gap-2">
         <Button
           variant="outline"
           size="icon"
           disabled={!hasPreviousPage || isPending}
-          onClick={() => goToPage(pageInfo.currentPage - 1)}
+          onClick={() => goToPage(currentPageInfo.currentPage - 1)}
           aria-label="Go to previous page"
         >
           <ArrowLeftIcon className="size-4.5" />
         </Button>
         <span className="min-w-20 text-center text-sm font-semibold text-ink">
-          {pageInfo.currentPage} / {Math.max(pageInfo.lastPage, 1)}
+          {display.compactPage}
         </span>
         <Button
           variant="outline"
           size="icon"
-          disabled={!pageInfo.hasNextPage || isPending}
-          onClick={() => goToPage(pageInfo.currentPage + 1)}
+          disabled={!currentPageInfo.hasNextPage || isPending}
+          onClick={() => goToPage(currentPageInfo.currentPage + 1)}
           aria-label="Go to next page"
         >
           <ArrowRightIcon className="size-4.5" />

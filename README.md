@@ -145,6 +145,14 @@ Example configuration files are included for both the frontend and backend.
 | `ANILIST_API_URL` | AniList GraphQL endpoint |
 | `EXTERNAL_API_TIMEOUT_SECONDS` | Timeout for requests to AniList |
 | `CACHE_TTL_SECONDS` | Cache duration |
+| `EXACT_PAGINATION_CACHE_TTL_SECONDS` | Exact Browse metadata cache duration (default: 3600 seconds) |
+| `ANILIST_EXACT_PROBE_RESPONSE_WAIT_SECONDS` | Maximum request-time wait for optional exact metadata (default: 3 seconds) |
+| `ANILIST_EXACT_PROBE_MAX_PAGE` | Safe ceiling for 50-item exact-pagination probes (default: 100) |
+| `ANILIST_STALE_IF_ERROR_SECONDS` | Extra window for cached AniList responses during temporary failures |
+| `ANILIST_MAX_CONCURRENCY` | Process-local limit for concurrent AniList requests (default: 4) |
+| `ANILIST_MAX_RETRIES` | Bounded retries after AniList HTTP 429 responses (default: 1) |
+| `ANILIST_RETRY_FALLBACK_SECONDS` | Delay used when a 429 has no valid `Retry-After` header |
+| `ANILIST_MAX_RETRY_DELAY_SECONDS` | Maximum delay used for one 429 retry |
 | `LOG_LEVEL` | Logging level |
 | `CORS_ALLOWED_ORIGINS` | Allowed frontend origins |
 

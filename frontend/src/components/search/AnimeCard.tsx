@@ -3,6 +3,14 @@ import Link from "next/link";
 
 import { GenreBadge } from "@/components/ui/GenreBadge";
 import { WatchlistButton } from "@/components/watchlist/WatchlistButton";
+import {
+  animeCardBodyClasses,
+  animeCardGenresClasses,
+  animeCardMetadataClasses,
+  animeCardShellClasses,
+  animeCardTitleClasses,
+} from "@/components/search/anime-card-layout";
+import { cn } from "@/lib/utils";
 import type { Anime } from "@/types/anime";
 
 type AnimeCardProps = {
@@ -16,7 +24,10 @@ function formatMetadata(anime: Anime): string {
 
 export function AnimeCard({ anime, imageLoading = "lazy" }: AnimeCardProps) {
   return (
-    <article className="group flex h-full flex-col overflow-hidden rounded-card border border-line/80 bg-surface/78 shadow-card transition-[transform,border-color,box-shadow] duration-300 ease-product hover:-translate-y-1 hover:border-line-strong hover:shadow-card-hover focus-within:border-brand/55 focus-within:ring-2 focus-within:ring-brand/30">
+    <article className={cn(
+      "group transition-[transform,border-color,box-shadow] duration-300 ease-product hover:-translate-y-1 hover:border-line-strong hover:shadow-card-hover focus-within:border-brand/55 focus-within:ring-2 focus-within:ring-brand/30",
+      animeCardShellClasses,
+    )}>
       <div className="relative">
         <Link
           href={`/anime/${anime.id}`}
@@ -30,7 +41,7 @@ export function AnimeCard({ anime, imageLoading = "lazy" }: AnimeCardProps) {
                 alt={`Cover art for ${anime.title}`}
                 fill
                 loading={imageLoading}
-                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, 20vw"
+                sizes="(max-width: 639px) calc(50vw - 1.625rem), (max-width: 1023px) calc(33.333vw - 2rem), (max-width: 1279px) calc(25vw - 2.1875rem), 14rem"
                 className="object-cover transition-transform duration-500 ease-product group-hover:scale-[1.035]"
               />
             ) : (
@@ -52,8 +63,8 @@ export function AnimeCard({ anime, imageLoading = "lazy" }: AnimeCardProps) {
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col p-3.5 sm:p-4">
-        <h3 className="line-clamp-2 min-h-10 text-sm font-semibold leading-5 tracking-[-0.015em] text-ink sm:text-[0.9375rem]">
+      <div className={animeCardBodyClasses}>
+        <h3 className={animeCardTitleClasses}>
           <Link
             href={`/anime/${anime.id}`}
             className="rounded-sm transition-colors hover:text-brand-soft focus-visible:outline-none"
@@ -61,8 +72,8 @@ export function AnimeCard({ anime, imageLoading = "lazy" }: AnimeCardProps) {
             {anime.title}
           </Link>
         </h3>
-        <p className="mt-1.5 text-xs text-ink-faint">{formatMetadata(anime)}</p>
-        <div className="mt-auto flex min-h-8 flex-wrap content-end gap-1.5 pt-3">
+        <p className={animeCardMetadataClasses}>{formatMetadata(anime)}</p>
+        <div className={animeCardGenresClasses}>
           {anime.genres.slice(0, 2).map((genre) => (
             <GenreBadge key={genre}>{genre}</GenreBadge>
           ))}

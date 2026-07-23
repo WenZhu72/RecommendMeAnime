@@ -2,8 +2,8 @@
 
 import { Container } from "@/components/layout/Container";
 import { AnimeGrid } from "@/components/search/AnimeGrid";
+import { AnimeGridSkeleton } from "@/components/search/AnimeGridSkeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { LoadingCards } from "@/components/ui/LoadingCards";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { useWatchlist } from "@/hooks/useWatchlist";
 import type { Anime, WatchlistItem } from "@/types/anime";
@@ -45,7 +45,7 @@ export default function WatchlistPage() {
       />
       <section className="mt-10 sm:mt-12" aria-live="polite">
         {!isHydrated ? (
-          <LoadingCards count={10} />
+          <AnimeGridSkeleton count={10} label="Loading watchlist" />
         ) : items.length ? (
           <>
             <p className="mb-6 text-sm text-ink-faint">

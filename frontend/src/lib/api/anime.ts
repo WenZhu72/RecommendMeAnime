@@ -1,13 +1,14 @@
 import { ApiError, apiRequest, queryString } from "@/lib/api/client";
+import { sanitizePublicAnime, sanitizePublicAnimeList } from "@/lib/anime-safety";
 import { buildBrowseAnimePath } from "@/lib/browse-path";
+import { buildHomeCataloguePath } from "@/lib/home-catalogue";
 import type { Anime, AnimeListResponse } from "@/types/anime";
 
 type PageOptions = { page?: number; perPage?: number };
 type HeroFallbackCandidateOptions = Required<PageOptions> & {
-  minimumScore: number;
   revalidateSeconds: number;
 };
-type BrowseOptions = PageOptions & {
+export type BrowseOptions = PageOptions & {
   search?: string;
   genre?: string;
   genres?: string[];
@@ -18,55 +19,73 @@ type BrowseOptions = PageOptions & {
   sort?: "trending" | "popular" | "top-rated";
 };
 
+type BrowseRequestOptions = {
+  retry?: boolean;
+  signal?: AbortSignal;
+};
+
 const DEFAULT_PAGE: Required<PageOptions> = { page: 1, perPage: 12 };
 
-async function getList(path: string, options: PageOptions = DEFAULT_PAGE): Promise<AnimeListResponse> {
-  return apiRequest<AnimeListResponse>(
-    `${path}${queryString({ page: options.page ?? 1, per_page: options.perPage ?? DEFAULT_PAGE.perPage })}`,
-    { revalidate: 3600 },
+async function getHomeList(
+  collection: "trending" | "popular" | "top-rated",
+  options: PageOptions = DEFAULT_PAGE,
+  revalidate = 3600,
+): Promise<AnimeListResponse> {
+  const response = await apiRequest<AnimeListResponse>(
+    buildHomeCataloguePath(collection, options),
+    { revalidate },
   );
+  return sanitizePublicAnimeList(response);
 }
 
 export async function getTrendingAnime(options?: PageOptions): Promise<Anime[]> {
-  return (await getList("/api/anime/trending", options)).items;
+  return (await getHomeList("trending", options)).items;
 }
 
 export async function getPopularAnime(options?: PageOptions): Promise<Anime[]> {
-  return (await getList("/api/anime/popular", options)).items;
+  return (await getHomeList("popular", options)).items;
 }
 
 export async function getTopRatedAnime(options?: PageOptions): Promise<Anime[]> {
-  return (await getList("/api/anime/top-rated", options)).items;
+  return (await getHomeList("top-rated", options)).items;
 }
 
 export async function getHeroFallbackCandidatePage(
   options: HeroFallbackCandidateOptions,
 ): Promise<AnimeListResponse> {
-  return apiRequest<AnimeListResponse>(
-    buildBrowseAnimePath({
-      page: options.page,
-      perPage: options.perPage,
-      minimumScore: options.minimumScore,
-      sort: "top-rated",
-    }),
-    { revalidate: options.revalidateSeconds },
+  return getHomeList(
+    "top-rated",
+    { page: options.page, perPage: options.perPage },
+    options.revalidateSeconds,
   );
 }
 
 export async function getAnimeByGenre(genre: string, options?: PageOptions): Promise<Anime[]> {
-  return (await getList(`/api/anime/genre/${encodeURIComponent(genre)}`, options)).items;
+  const response = await apiRequest<AnimeListResponse>(
+    `/api/anime/genre/${encodeURIComponent(genre)}${queryString({
+      page: options?.page ?? 1,
+      per_page: options?.perPage ?? DEFAULT_PAGE.perPage,
+    })}`,
+    { revalidate: 3600 },
+  );
+  return sanitizePublicAnimeList(response).items;
 }
 
-export async function browseAnime(options: BrowseOptions = {}): Promise<AnimeListResponse> {
-  return apiRequest<AnimeListResponse>(
+export async function browseAnime(
+  options: BrowseOptions = {},
+  requestOptions: BrowseRequestOptions = {},
+): Promise<AnimeListResponse> {
+  const response = await apiRequest<AnimeListResponse>(
     buildBrowseAnimePath(options),
-    { cache: "no-store" },
+    { cache: "no-store", ...requestOptions },
   );
+  return sanitizePublicAnimeList(response);
 }
 
 export async function getAnimeById(id: number): Promise<Anime | null> {
   try {
-    return await apiRequest<Anime>(`/api/anime/${id}`, { revalidate: 3600 });
+    const anime = await apiRequest<Anime>(`/api/anime/${id}`, { revalidate: 3600 });
+    return sanitizePublicAnime(anime);
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) return null;
     throw error;

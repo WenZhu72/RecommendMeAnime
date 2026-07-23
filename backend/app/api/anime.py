@@ -85,7 +85,7 @@ async def browse_anime(
     return await get_anime_list(
         client, page=page, per_page=per_page, search=cleaned_search, genre_in=cleaned_genres or None,
         anime_format=anime_format, season=season, season_year=season_year,
-        minimum_score=minimum_score, sort=SORTS[sort],
+        minimum_score=minimum_score, sort=SORTS[sort], exact_pagination=True,
     )
 
 

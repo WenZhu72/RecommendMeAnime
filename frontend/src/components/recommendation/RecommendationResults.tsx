@@ -3,10 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { AnimeGrid } from "@/components/search/AnimeGrid";
+import { AnimeGridSkeleton } from "@/components/search/AnimeGridSkeleton";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorMessage } from "@/components/ui/ErrorMessage";
-import { LoadingCards } from "@/components/ui/LoadingCards";
 import { getRecommendations } from "@/lib/api/recommendations";
 import { getSavedRecommendationPreferences } from "@/lib/recommendation-storage";
 import type { Anime } from "@/types/anime";
@@ -42,7 +42,7 @@ export function RecommendationResults() {
     return () => window.clearTimeout(timeout);
   }, [run]);
 
-  if (!isInitialized) return <LoadingCards count={10} />;
+  if (!isInitialized) return <AnimeGridSkeleton count={10} label="Loading recommendations" />;
   if (!preferences) {
     return (
       <EmptyState
@@ -78,7 +78,7 @@ export function RecommendationResults() {
 
       <div className="mt-10" aria-live="polite">
         {isLoading ? (
-          <LoadingCards count={10} />
+          <AnimeGridSkeleton count={10} label="Loading recommendations" />
         ) : error ? (
           <ErrorMessage message={error} />
         ) : results.length ? (

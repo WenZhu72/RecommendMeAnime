@@ -5,52 +5,56 @@ import { useEffect, useRef, useState } from "react";
 
 import { FilterDropdown } from "@/components/browse/FilterDropdown";
 import { GenreDropdown } from "@/components/browse/GenreDropdown";
+import { YearDropdown } from "@/components/browse/YearDropdown";
 import { useBrowseNavigation } from "@/components/browse/BrowseNavigation";
 import { SearchIcon, SlidersIcon } from "@/components/ui/Icons";
 import { Input } from "@/components/ui/Input";
-import { ANIME_FORMATS, ANIME_SEASONS, BROWSE_SORTS, BROWSE_YEARS } from "@/config/catalogue";
-import { buildBrowseLocation } from "@/lib/browse-path";
+import {
+  ANIME_FORMATS,
+  ANIME_SEASONS,
+  BROWSE_SORTS,
+  normalizeBrowseSort,
+} from "@/config/catalogue";
+import { buildBrowseLocation, updateBrowseGenres, updateBrowseParameter } from "@/lib/browse-path";
 import { cn } from "@/lib/utils";
 
 type BrowseFiltersProps = {
   initialSearch?: string;
 };
 
-const YEAR_OPTIONS = BROWSE_YEARS.map((year) => ({ label: String(year), value: String(year) }));
 const MINIMUM_SCORE_MAX = 100;
 const MINIMUM_SCORE_STEP = 5;
 const SCORE_COMMIT_DELAY_MS = 320;
 
 export function BrowseFilters({ initialSearch = "" }: BrowseFiltersProps) {
   const searchParams = useSearchParams();
-  const { isPending, navigate } = useBrowseNavigation();
+  const {
+    getNavigationParameters,
+    isPending,
+    navigate,
+    navigationParameters,
+  } = useBrowseNavigation();
   const [query, setQuery] = useState(initialSearch);
   const [moreOpen, setMoreOpen] = useState(Boolean(searchParams.get("minimumScore")));
-  const selectedGenres = searchParams.getAll("genre");
+  const selectedGenres = navigationParameters.getAll("genre");
+  const selectedYear = navigationParameters.get("year") ?? "";
+  const selectedSort = normalizeBrowseSort(navigationParameters.get("sort"));
 
   function commitNavigation(parameters: URLSearchParams) {
-    const href = buildBrowseLocation(parameters);
-    const currentHref = `/browse${searchParams.size ? `?${searchParams.toString()}` : ""}`;
-    if (href !== currentHref) navigate(href);
+    navigate(buildBrowseLocation(parameters));
   }
 
   function updateParameter(name: string, value: string) {
-    const parameters = new URLSearchParams(searchParams.toString());
-    if (value) parameters.set(name, value);
-    else parameters.delete(name);
-    commitNavigation(parameters);
+    commitNavigation(updateBrowseParameter(getNavigationParameters(), name, value));
   }
 
   function updateGenres(genres: string[]) {
-    const parameters = new URLSearchParams(searchParams.toString());
-    parameters.delete("genre");
-    genres.forEach((genre) => parameters.append("genre", genre));
-    commitNavigation(parameters);
+    commitNavigation(updateBrowseGenres(getNavigationParameters(), genres));
   }
 
   function submitSearch(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const parameters = new URLSearchParams(searchParams.toString());
+    const parameters = getNavigationParameters();
     const cleaned = query.trim();
     if (cleaned) parameters.set("search", cleaned);
     else parameters.delete("search");
@@ -63,8 +67,8 @@ export function BrowseFilters({ initialSearch = "" }: BrowseFiltersProps) {
     navigate("/browse");
   }
 
-  const hasFilters = [...searchParams.keys()].some((key) => key !== "sort" && key !== "page")
-    || (searchParams.get("sort") ?? "popular") !== "popular";
+  const hasFilters = [...navigationParameters.keys()].some((key) => key !== "sort" && key !== "page")
+    || (navigationParameters.get("sort") ?? "popular") !== "popular";
 
   return (
     <section
@@ -85,7 +89,6 @@ export function BrowseFilters({ initialSearch = "" }: BrowseFiltersProps) {
           />
           <button
             type="submit"
-            disabled={isPending}
             aria-label="Apply search"
             className="absolute right-1.5 top-1/2 inline-flex size-8 -translate-y-1/2 items-center justify-center rounded-lg text-ink-faint transition-colors hover:bg-ink/[0.05] hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-soft disabled:opacity-50"
           >
@@ -94,41 +97,37 @@ export function BrowseFilters({ initialSearch = "" }: BrowseFiltersProps) {
         </form>
 
         <GenreDropdown selected={selectedGenres} onChange={updateGenres} />
+
         <FilterDropdown
           label="Format"
-          value={searchParams.get("format") ?? ""}
+          value={navigationParameters.get("format") ?? ""}
           placeholder="Format"
           options={ANIME_FORMATS}
-          disabled={isPending}
+          includePlaceholderOption={false}
           clearOnReselect
           onChange={(value) => updateParameter("format", value)}
         />
+
         <FilterDropdown
           label="Season"
-          value={searchParams.get("season") ?? ""}
+          value={navigationParameters.get("season") ?? ""}
           placeholder="Season"
           options={ANIME_SEASONS}
-          disabled={isPending}
+          includePlaceholderOption={false}
           clearOnReselect
           onChange={(value) => updateParameter("season", value)}
         />
 
-        <FilterDropdown
-          label="Release year"
-          value={searchParams.get("year") ?? ""}
-          placeholder="Year"
-          options={YEAR_OPTIONS}
-          disabled={isPending}
-          clearOnReselect
-          onChange={(value) => updateParameter("year", value)}
+        <YearDropdown
+          value={selectedYear}
+          onChange={(year) => updateParameter("year", year)}
         />
 
         <FilterDropdown
           label="Sort order"
-          value={searchParams.get("sort") ?? "popular"}
+          value={selectedSort}
           placeholder="Sort"
           options={BROWSE_SORTS}
-          disabled={isPending}
           includePlaceholderOption={false}
           onChange={(value) => updateParameter("sort", value)}
         />
@@ -140,7 +139,7 @@ export function BrowseFilters({ initialSearch = "" }: BrowseFiltersProps) {
           onClick={() => setMoreOpen((open) => !open)}
           className={cn(
             "inline-flex min-h-control items-center justify-center gap-2 rounded-control border px-3.5 text-sm font-medium transition-[color,background-color,border-color] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/20",
-            moreOpen || searchParams.has("minimumScore")
+            moreOpen || navigationParameters.has("minimumScore")
               ? "border-brand/45 bg-brand/8 text-ink"
               : "border-line bg-canvas-soft/90 text-ink-muted hover:border-line-strong hover:text-ink",
           )}
@@ -162,16 +161,14 @@ export function BrowseFilters({ initialSearch = "" }: BrowseFiltersProps) {
         <div className="min-h-0 overflow-hidden">
           <div className="mt-2 flex flex-col gap-3 border-t border-line px-1 pt-3 sm:flex-row sm:items-end sm:justify-between">
             <MinimumScoreSlider
-              key={searchParams.get("minimumScore") ?? "any-score"}
-              initialValue={searchParams.get("minimumScore") ?? ""}
-              disabled={isPending}
+              key={navigationParameters.get("minimumScore") ?? "any-score"}
+              initialValue={navigationParameters.get("minimumScore") ?? ""}
               onCommit={(value) => updateParameter("minimumScore", value)}
             />
             {hasFilters && (
               <button
                 type="button"
                 onClick={resetFilters}
-                disabled={isPending}
                 className="min-h-10 self-start rounded-control px-3 text-xs font-semibold text-ink-muted transition-colors hover:bg-ink/[0.05] hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-soft disabled:opacity-50 sm:self-end"
               >
                 Clear all filters
@@ -185,12 +182,11 @@ export function BrowseFilters({ initialSearch = "" }: BrowseFiltersProps) {
 }
 
 type MinimumScoreSliderProps = {
-  disabled: boolean;
   initialValue: string;
   onCommit: (value: string) => void;
 };
 
-function MinimumScoreSlider({ disabled, initialValue, onCommit }: MinimumScoreSliderProps) {
+function MinimumScoreSlider({ initialValue, onCommit }: MinimumScoreSliderProps) {
   const initialScore = normalizedScore(initialValue);
   const [draftScore, setDraftScore] = useState(initialScore);
   const draftScoreRef = useRef(initialScore);
@@ -251,7 +247,7 @@ function MinimumScoreSlider({ disabled, initialValue, onCommit }: MinimumScoreSl
           <button
             type="button"
             onClick={clearScore}
-            disabled={disabled || draftScore === 0}
+            disabled={draftScore === 0}
             className="rounded-md px-2 py-1 text-xs font-semibold text-ink-muted transition-colors hover:bg-ink/[0.05] hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-soft disabled:cursor-not-allowed disabled:opacity-40"
           >
             Clear
@@ -265,7 +261,6 @@ function MinimumScoreSlider({ disabled, initialValue, onCommit }: MinimumScoreSl
         max={MINIMUM_SCORE_MAX}
         step={MINIMUM_SCORE_STEP}
         value={draftScore}
-        disabled={disabled}
         aria-label="Minimum AniList score"
         aria-valuetext={scoreLabel}
         onPointerDown={() => {

@@ -9,6 +9,7 @@ type ApiRequestOptions = RequestInit & {
 };
 
 const DEFAULT_TIMEOUT_MS = 15_000;
+const CATALOGUE_POLICY_VERSION = "strict-non-adult-v1";
 
 export class ApiError extends Error {
   status: number;
@@ -32,7 +33,8 @@ function apiUrl(path: string): string {
   if (!path.startsWith("/") || path.startsWith("//")) {
     throw new ApiError("Invalid API request path.", 500);
   }
-  return `${API_BASE_URL}${path}`;
+  const separator = path.includes("?") ? "&" : "?";
+  return `${API_BASE_URL}${path}${separator}catalogue_policy=${CATALOGUE_POLICY_VERSION}`;
 }
 
 async function requestOnce<T>(path: string, options: ApiRequestOptions): Promise<T> {
@@ -41,56 +43,65 @@ async function requestOnce<T>(path: string, options: ApiRequestOptions): Promise
   const controller = new AbortController();
   const abortForCaller = () => controller.abort();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  signal?.addEventListener("abort", abortForCaller, { once: true });
+  if (signal?.aborted) controller.abort();
+  else signal?.addEventListener("abort", abortForCaller, { once: true });
 
-  let response: Response;
   try {
-    response = await fetch(apiUrl(path), {
-      ...requestOptions,
-      headers: { Accept: "application/json", ...headers },
-      signal: controller.signal,
-      next: revalidate === undefined ? undefined : { revalidate },
-    });
-  } catch {
-    if (signal?.aborted) {
-      throw new ApiError("The request was cancelled.", 499);
+    let response: Response;
+    try {
+      response = await fetch(apiUrl(path), {
+        ...requestOptions,
+        headers: { Accept: "application/json", ...headers },
+        signal: controller.signal,
+        next: revalidate === undefined ? undefined : { revalidate },
+      });
+    } catch {
+      if (signal?.aborted) {
+        throw new ApiError("The request was cancelled.", 499);
+      }
+      if (controller.signal.aborted) {
+        throw new ApiError(
+          "The anime service is taking longer than expected. It may be waking up; please retry.",
+          504,
+          true,
+        );
+      }
+      throw new ApiError("The anime service is unavailable. Please try again shortly.", 503, true);
     }
-    if (controller.signal.aborted) {
+
+    let payload: unknown = null;
+    try {
+      payload = await response.json();
+    } catch {
+      if (signal?.aborted) {
+        throw new ApiError("The request was cancelled.", 499);
+      }
+      if (controller.signal.aborted) {
+        throw new ApiError("The anime service timed out. Please retry.", 504, true);
+      }
+      if (!response.ok) {
+        throw new ApiError("The anime service returned an invalid response.", response.status);
+      }
+    }
+
+    if (!response.ok) {
+      const retryable = response.status === 503 || response.status === 504;
       throw new ApiError(
-        "The anime service is taking longer than expected. It may be waking up—please retry.",
-        504,
-        true,
+        errorDetail(payload) ?? "The anime service could not complete this request.",
+        response.status,
+        retryable,
       );
     }
-    throw new ApiError("The anime service is unavailable. Please try again shortly.", 503, true);
+
+    if (payload === null) {
+      throw new ApiError("The anime service returned an invalid response.", 502);
+    }
+
+    return payload as T;
   } finally {
     clearTimeout(timeout);
     signal?.removeEventListener("abort", abortForCaller);
   }
-
-  let payload: unknown = null;
-  try {
-    payload = await response.json();
-  } catch {
-    if (!response.ok) {
-      throw new ApiError("The anime service returned an invalid response.", response.status);
-    }
-  }
-
-  if (!response.ok) {
-    const retryable = response.status === 503 || response.status === 504;
-    throw new ApiError(
-      errorDetail(payload) ?? "The anime service could not complete this request.",
-      response.status,
-      retryable,
-    );
-  }
-
-  if (payload === null) {
-    throw new ApiError("The anime service returned an invalid response.", 502);
-  }
-
-  return payload as T;
 }
 
 export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {

@@ -1,10 +1,24 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
+import {
+  getBrowserHydrationSnapshot,
+  getServerHydrationSnapshot,
+  selectHydrationSafeWatchlistState,
+  subscribeToBrowserHydration,
+} from "@/lib/watchlist-hydration";
 import type { Anime, WatchlistItem } from "@/types/anime";
 
-const STORAGE_KEY = "recommend-me-anime-watchlist";
+const STORAGE_KEY = "recommend-me-anime-watchlist-strict-non-adult-v1";
 
 type WatchlistContextValue = {
   items: WatchlistItem[];
@@ -32,7 +46,10 @@ function loadItems(): WatchlistItem[] {
     const parsed: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]");
     if (!Array.isArray(parsed)) return [];
     const unique = new Map<number, WatchlistItem>();
-    parsed.filter(isWatchlistItem).forEach((item) => unique.set(item.id, item));
+    parsed
+      .filter(isWatchlistItem)
+      .filter((item) => item.isAdult !== true)
+      .forEach((item) => unique.set(item.id, item));
     return [...unique.values()];
   } catch {
     return [];
@@ -40,8 +57,8 @@ function loadItems(): WatchlistItem[] {
 }
 
 function toWatchlistItem(anime: Anime): WatchlistItem {
-  const { id, title, coverImage, averageScore, genres, format, seasonYear } = anime;
-  return { id, title, coverImage, averageScore, genres, format, seasonYear };
+  const { id, title, coverImage, averageScore, genres, format, seasonYear, isAdult } = anime;
+  return { id, title, coverImage, averageScore, genres, format, seasonYear, isAdult };
 }
 
 export function WatchlistProvider({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -63,7 +80,11 @@ export function WatchlistProvider({ children }: Readonly<{ children: React.React
   const value = useMemo<WatchlistContextValue>(() => ({
     items,
     isHydrated,
-    add: (anime) => setItems((current) => current.some((item) => item.id === anime.id) ? current : [...current, toWatchlistItem(anime)]),
+    add: (anime) => setItems((current) => (
+      anime.isAdult === true || current.some((item) => item.id === anime.id)
+        ? current
+        : [...current, toWatchlistItem(anime)]
+    )),
     remove: (animeId) => setItems((current) => current.filter((item) => item.id !== animeId)),
     has: (animeId) => items.some((item) => item.id === animeId),
   }), [isHydrated, items]);
@@ -73,6 +94,30 @@ export function WatchlistProvider({ children }: Readonly<{ children: React.React
 
 export function useWatchlist(): WatchlistContextValue {
   const context = useContext(WatchlistContext);
+  // A root provider can finish reading storage before a later streamed
+  // Suspense boundary hydrates. Gate its browser state per consumer so that
+  // the server and that boundary's first client render remain identical.
+  const consumerHydrated = useSyncExternalStore(
+    subscribeToBrowserHydration,
+    getBrowserHydrationSnapshot,
+    getServerHydrationSnapshot,
+  );
   if (!context) throw new Error("useWatchlist must be used inside WatchlistProvider");
-  return context;
+  const safeState = selectHydrationSafeWatchlistState(
+    context.items,
+    context.isHydrated,
+    consumerHydrated,
+  );
+  const has = useCallback(
+    (animeId: number) => safeState.isHydrated && context.has(animeId),
+    [context, safeState.isHydrated],
+  );
+
+  return useMemo(() => ({
+    items: safeState.items,
+    isHydrated: safeState.isHydrated,
+    add: context.add,
+    remove: context.remove,
+    has,
+  }), [context.add, context.remove, has, safeState.isHydrated, safeState.items]);
 }

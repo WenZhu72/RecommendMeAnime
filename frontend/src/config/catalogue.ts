@@ -38,11 +38,41 @@ export const ANIME_SEASONS = [
   { value: "FALL", label: "Fall" },
 ] as const;
 
-export const BROWSE_SORTS = [
-  { value: "popular", label: "Most popular" },
-  { value: "trending", label: "Trending" },
-  { value: "top-rated", label: "Highest rated" },
-] as const;
+export const BROWSE_SORT_CONFIG = {
+  popular: {
+    value: "popular",
+    triggerLabel: "Most popular",
+    heading: "Popular anime",
+  },
+  trending: {
+    value: "trending",
+    triggerLabel: "Trending",
+    heading: "Trending anime",
+  },
+  "top-rated": {
+    value: "top-rated",
+    triggerLabel: "Highest rated",
+    heading: "Highest-rated anime",
+  },
+} as const;
+
+export type BrowseSort = keyof typeof BROWSE_SORT_CONFIG;
+export type BrowseSortConfig = typeof BROWSE_SORT_CONFIG[BrowseSort];
+
+export const BROWSE_SORTS = Object.values(BROWSE_SORT_CONFIG).map((sort) => ({
+  value: sort.value,
+  label: sort.triggerLabel,
+}));
+
+export function normalizeBrowseSort(value: string | null | undefined): BrowseSort {
+  return value && Object.prototype.hasOwnProperty.call(BROWSE_SORT_CONFIG, value)
+    ? value as BrowseSort
+    : "popular";
+}
+
+export function getBrowseSortConfig(value: string | null | undefined): BrowseSortConfig {
+  return BROWSE_SORT_CONFIG[normalizeBrowseSort(value)];
+}
 
 export const BROWSE_YEARS = Array.from(
   { length: new Date().getFullYear() - 1939 },

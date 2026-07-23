@@ -2,8 +2,8 @@
   opacity: 0;
   transform: scale(0.96);
   transform-origin: center top;
-  animation: browse-skeleton-enter 420ms var(--ease-product) both;
-  animation-delay: var(--browse-stagger-delay, 0ms);
+  animation: anime-grid-skeleton-enter 420ms var(--ease-product) both;
+  animation-delay: var(--anime-grid-stagger-delay, 0ms);
 }
 
 .skeletonSurface {
@@ -22,8 +22,8 @@
     transparent 72%
   );
   transform: translateX(-110%);
-  animation: browse-skeleton-shimmer 1.8s ease-in-out infinite;
-  animation-delay: var(--browse-stagger-delay, 0ms);
+  animation: anime-grid-skeleton-shimmer 1.8s ease-in-out infinite;
+  animation-delay: var(--anime-grid-stagger-delay, 0ms);
 }
 
 .resultCard {
@@ -31,11 +31,11 @@
   opacity: 0;
   transform: scale(0.97);
   transform-origin: center top;
-  animation: browse-result-enter 460ms var(--ease-product) both;
-  animation-delay: var(--browse-stagger-delay, 0ms);
+  animation: anime-grid-result-enter 460ms var(--ease-product) both;
+  animation-delay: var(--anime-grid-stagger-delay, 0ms);
 }
 
-@keyframes browse-skeleton-enter {
+@keyframes anime-grid-skeleton-enter {
   from {
     opacity: 0.48;
     transform: scale(0.96);
@@ -46,7 +46,7 @@
   }
 }
 
-@keyframes browse-skeleton-shimmer {
+@keyframes anime-grid-skeleton-shimmer {
   0%,
   24% {
     transform: translateX(-110%);
@@ -57,7 +57,7 @@
   }
 }
 
-@keyframes browse-result-enter {
+@keyframes anime-grid-result-enter {
   from {
     opacity: 0;
     transform: scale(0.97);

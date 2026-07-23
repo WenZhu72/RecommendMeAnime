@@ -35,6 +35,7 @@ export type Anime = {
   countryOfOrigin: string | null;
   synonyms: string[];
   siteUrl: string | null;
+  isAdult?: boolean;
   relations: Anime[];
   recommendations: Anime[];
 };
@@ -45,6 +46,7 @@ export type AnimePageInfo = {
   lastPage: number;
   perPage: number;
   total: number;
+  isExact: boolean;
 };
 
 export type AnimeListResponse = {
@@ -54,5 +56,5 @@ export type AnimeListResponse = {
 
 export type WatchlistItem = Pick<
   Anime,
-  "id" | "title" | "coverImage" | "averageScore" | "genres" | "format" | "seasonYear"
+  "id" | "title" | "coverImage" | "averageScore" | "genres" | "format" | "seasonYear" | "isAdult"
 >;

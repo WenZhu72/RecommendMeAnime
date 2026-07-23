@@ -1,13 +1,18 @@
 import type { Metadata } from "next";
 
 import { BrowseFilters } from "@/components/browse/BrowseFilters";
-import { BrowseLoadingCards } from "@/components/browse/BrowseLoadingCards";
 import { BrowseNavigationProvider, BrowseResultsBoundary } from "@/components/browse/BrowseNavigation";
+import {
+  BrowsePaginationMetadataProvider,
+  BrowseTitleCount,
+} from "@/components/browse/BrowsePaginationMetadata";
 import { Pagination } from "@/components/browse/Pagination";
 import { Container } from "@/components/layout/Container";
 import { AnimeGrid } from "@/components/search/AnimeGrid";
+import { AnimeGridSkeleton } from "@/components/search/AnimeGridSkeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorMessage } from "@/components/ui/ErrorMessage";
+import { getBrowseSortConfig } from "@/config/catalogue";
 import { browseAnime } from "@/lib/api/anime";
 import { buildBrowseAnimePath } from "@/lib/browse-path";
 
@@ -22,7 +27,6 @@ type BrowsePageProps = { searchParams: Promise<SearchParameters> };
 
 const FORMATS = ["TV", "MOVIE", "OVA", "ONA", "SPECIAL"] as const;
 const SEASONS = ["WINTER", "SPRING", "SUMMER", "FALL"] as const;
-const SORTS = ["trending", "popular", "top-rated"] as const;
 
 function first(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
@@ -55,7 +59,8 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
   const season = allowedValue(first(parameters.season), SEASONS);
   const yearValue = positiveInteger(first(parameters.year), 0);
   const seasonYear = yearValue >= 1940 && yearValue <= 2100 ? yearValue : undefined;
-  const sort = allowedValue(first(parameters.sort), SORTS) ?? "popular";
+  const sortConfig = getBrowseSortConfig(first(parameters.sort));
+  const sort = sortConfig.value;
   const page = positiveInteger(first(parameters.page), 1);
   const scoreValue = positiveInteger(first(parameters.minimumScore), 0);
   const minimumScore = scoreValue >= 1 && scoreValue <= 100 ? scoreValue : undefined;
@@ -86,48 +91,52 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
     format,
     season ? readableSeason(season, seasonYear) : seasonYear,
   ].filter(Boolean).join(" / ");
-
   return (
     <Container className="py-7 sm:py-10">
       <h1 className="sr-only">Browse anime</h1>
       <BrowseNavigationProvider>
-        <BrowseFilters key={search ?? ""} initialSearch={search} />
+        <BrowseFilters
+          key={`${search ?? ""}:${minimumScore ?? ""}`}
+          initialSearch={search}
+        />
 
         <BrowseResultsBoundary responseKey={queryKey} fallback={<BrowseResultsLoading />}>
-          <section
+          <BrowsePaginationMetadataProvider
             key={queryKey}
-            id="browse-results"
-            data-browse-query={queryKey}
-            className="mt-9 scroll-mt-28 sm:mt-11"
-            aria-labelledby="browse-results-title"
+            browseOptions={browseOptions}
+            initialPageInfo={response?.pageInfo ?? null}
+            responseKey={queryKey}
           >
-            <div className="mb-6 flex items-end justify-between gap-4">
-              <h2 id="browse-results-title" className="text-xl font-semibold tracking-[-0.03em] text-ink sm:text-2xl">
-                {filterSummary || "Popular anime"}
-              </h2>
-              {response && (
-                <p className="shrink-0 text-sm text-ink-faint">
-                  {response.pageInfo.total.toLocaleString()} title{response.pageInfo.total === 1 ? "" : "s"}
-                </p>
-              )}
-            </div>
+            <section
+              id="browse-results"
+              data-browse-query={queryKey}
+              className="mt-9 scroll-mt-28 sm:mt-11"
+              aria-labelledby="browse-results-title"
+            >
+              <div className="mb-6 flex items-end justify-between gap-4">
+                <h2 id="browse-results-title" className="text-xl font-semibold tracking-[-0.03em] text-ink sm:text-2xl">
+                  {filterSummary || sortConfig.heading}
+                </h2>
+                <BrowseTitleCount />
+              </div>
 
-            {error ? (
-              <ErrorMessage message="The catalogue is unavailable right now. Your filters are still saved in the URL; please try again shortly." />
-            ) : response?.items.length ? (
-              <>
-                <AnimeGrid anime={response.items} animateEntrance eagerFirstImage />
-                <Pagination pageInfo={response.pageInfo} />
-              </>
-            ) : (
-              <EmptyState
-                title="No titles matched these filters"
-                description="Try a broader search, different genres, or a lower minimum score."
-                actionHref="/browse"
-                actionLabel="Clear all filters"
-              />
-            )}
-          </section>
+              {error ? (
+                <ErrorMessage message="The catalogue is unavailable right now. Your filters are still saved in the URL; please try again shortly." />
+              ) : response?.items.length ? (
+                <>
+                  <AnimeGrid anime={response.items} animateEntrance eagerFirstImage />
+                  <Pagination />
+                </>
+              ) : (
+                <EmptyState
+                  title="No titles matched these filters"
+                  description="Try a broader search, different genres, or a lower minimum score."
+                  actionHref="/browse"
+                  actionLabel="Clear all filters"
+                />
+              )}
+            </section>
+          </BrowsePaginationMetadataProvider>
         </BrowseResultsBoundary>
       </BrowseNavigationProvider>
     </Container>
@@ -136,10 +145,9 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
 
 function BrowseResultsLoading() {
   return (
-    <section className="mt-9 scroll-mt-28 sm:mt-11" aria-label="Loading anime results" role="status">
-      <span className="sr-only">Loading anime results and pagination</span>
+    <section className="mt-9 scroll-mt-28 sm:mt-11" aria-busy="true">
       <div className="mb-6 h-8 w-52 animate-pulse rounded-lg bg-line/70" aria-hidden="true" />
-      <BrowseLoadingCards />
+      <AnimeGridSkeleton count={20} label="Loading anime results and pagination" />
     </section>
   );
 }

@@ -92,6 +92,125 @@ export function buildBrowseLocation(source) {
 }
 
 /**
+ * Return a copy of Browse URL state with one parameter updated.
+ *
+ * @param {URLSearchParams | string} source
+ * @param {string} name
+ * @param {string} value
+ */
+export function updateBrowseParameter(source, name, value) {
+  const parameters = new URLSearchParams(source.toString());
+  if (value) parameters.set(name, value);
+  else parameters.delete(name);
+  return parameters;
+}
+
+/**
+ * Return a copy of Browse URL state with its repeated genre parameters updated.
+ *
+ * @param {URLSearchParams | string} source
+ * @param {string[]} genres
+ */
+export function updateBrowseGenres(source, genres) {
+  const parameters = new URLSearchParams(source.toString());
+  parameters.delete("genre");
+  genres.forEach((genre) => {
+    if (genre) parameters.append("genre", genre);
+  });
+  return parameters;
+}
+
+/**
+ * Toggle an exact year selection. Selecting the active year clears it.
+ *
+ * @param {string} currentYear
+ * @param {string} selectedYear
+ */
+export function toggleBrowseYear(currentYear, selectedYear) {
+  return currentYear === selectedYear ? "" : selectedYear;
+}
+
+/**
+ * Build a paginated Browse URL without dropping active filters.
+ *
+ * @param {string} pathname
+ * @param {URLSearchParams | string} source
+ * @param {number} page
+ */
+export function buildBrowsePageLocation(pathname, source, page) {
+  const parameters = new URLSearchParams(source.toString());
+  if (page === 1) parameters.delete("page");
+  else parameters.set("page", String(page));
+  return `${pathname}${parameters.size ? `?${parameters.toString()}` : ""}`;
+}
+
+/**
+ * Resolve a public Browse href to its canonical API response identity.
+ *
+ * @param {string} href
+ */
+export function buildBrowseRequestKeyFromHref(href) {
+  return buildBrowseAnimePathFromLocation(buildBrowseParametersFromHref(href));
+}
+
+/**
+ * Read the search parameters from a relative or absolute Browse href.
+ *
+ * @param {string} href
+ */
+export function buildBrowseParametersFromHref(href) {
+  const queryStart = href.indexOf("?");
+  const query = queryStart === -1 ? "" : href.slice(queryStart + 1).split("#", 1)[0];
+  return new URLSearchParams(query);
+}
+
+/**
+ * Resolve the URL state the Browse controls should display. While a route is
+ * pending, its destination is authoritative so triggers do not show stale
+ * values until the server response commits.
+ *
+ * @param {URLSearchParams | string} current
+ * @param {string | null} targetHref
+ */
+export function getBrowseNavigationParameters(current, targetHref) {
+  return targetHref
+    ? buildBrowseParametersFromHref(targetHref)
+    : new URLSearchParams(current.toString());
+}
+
+/**
+ * Suppress repeat pushes to either the committed or already-requested response.
+ *
+ * @param {string} currentRequestKey
+ * @param {string | null} targetRequestKey
+ * @param {string} nextRequestKey
+ */
+export function shouldNavigateBrowse(currentRequestKey, targetRequestKey, nextRequestKey) {
+  if (nextRequestKey === targetRequestKey) return false;
+  return targetRequestKey !== null || nextRequestKey !== currentRequestKey;
+}
+
+/**
+ * Keep loading visible until the rendered response belongs to the latest target.
+ *
+ * @param {{
+ *   transitionPending: boolean,
+ *   currentRequestKey: string,
+ *   targetRequestKey: string | null,
+ *   responseKey: string,
+ * }} state
+ */
+export function shouldShowBrowseFallback({
+  transitionPending,
+  currentRequestKey,
+  targetRequestKey,
+  responseKey,
+}) {
+  const expectedRequestKey = targetRequestKey ?? currentRequestKey;
+  return transitionPending || responseKey !== expectedRequestKey;
+}
+
+/**
  * Build the single public destination for title searches across the app.
  *
  * @param {string} search

@@ -36,6 +36,7 @@ async def get_recommendations(
         client, page=1, per_page=50, genre_in=preferences.favorite_genres,
         format_in=list(preferences.formats), minimum_score=max(0, preferences.minimum_score - 1),
         sort=SORTS["popular"] if preferences.popularity == "popular" else SORTS["top-rated"],
+        exact_pagination=False,
     )
     tone_genres = set().union(*(TONE_GENRES.get(tone, set()) for tone in preferences.tones))
     items = [

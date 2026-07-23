@@ -44,6 +44,7 @@ class Anime(ApiModel):
     country_of_origin: str | None = Field(default=None, serialization_alias="countryOfOrigin")
     synonyms: list[str] = Field(default_factory=list)
     site_url: str | None = Field(default=None, serialization_alias="siteUrl")
+    is_adult: bool = Field(serialization_alias="isAdult")
     relations: list[Anime] = Field(default_factory=list)
     recommendations: list[Anime] = Field(default_factory=list)
 
@@ -54,6 +55,7 @@ class PageInfo(ApiModel):
     last_page: int = Field(serialization_alias="lastPage")
     per_page: int = Field(serialization_alias="perPage")
     total: int = 0
+    is_exact: bool = Field(default=True, serialization_alias="isExact")
 
 
 class AnimeListResponse(ApiModel):

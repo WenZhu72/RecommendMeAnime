@@ -118,10 +118,11 @@ export function HeroCarousel({
 
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
     const saved = getSavedRecommendationPreferences();
     if (!saved) return;
 
-    void getRecommendations(saved)
+    void getRecommendations(saved, { signal: controller.signal })
       .then((recommendations) => {
         if (cancelled) return;
         const personalized = selectPersonalizedHeroAnime(recommendations);
@@ -135,7 +136,10 @@ export function HeroCarousel({
         // The curated fallback remains visible without being labelled personalized.
       });
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
   }, [resetInteraction]);
 
   useEffect(() => {

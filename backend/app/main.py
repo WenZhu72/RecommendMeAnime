@@ -14,7 +14,13 @@ from app.api.anime import router as anime_router
 from app.api.recommendations import router as recommendations_router
 from app.clients.anilist import AniListClient
 from app.core.config import Settings, configure_logging, settings
-from app.core.exceptions import AniListResponseError, AniListTimeoutError, AniListUnavailableError
+from app.core.exceptions import (
+    AniListRateLimitError,
+    AniListResponseError,
+    AniListTimeoutError,
+    AniListUnavailableError,
+    AniListUpstreamError,
+)
 
 configure_logging(settings.log_level)
 logger = logging.getLogger(__name__)
@@ -30,13 +36,27 @@ def create_app(config: Settings = settings) -> FastAPI:
             application.state.anilist_client = AniListClient(
                 http_client,
                 cache_ttl_seconds=config.cache_ttl_seconds,
+                exact_pagination_cache_ttl_seconds=config.exact_pagination_cache_ttl_seconds,
+                exact_probe_response_wait_seconds=config.anilist_exact_probe_response_wait_seconds,
+                exact_probe_max_page=config.anilist_exact_probe_max_page,
+                stale_if_error_seconds=config.stale_if_error_seconds,
+                max_concurrency=config.anilist_max_concurrency,
+                max_retries=config.anilist_max_retries,
+                retry_fallback_seconds=config.anilist_retry_fallback_seconds,
+                max_retry_delay_seconds=config.anilist_max_retry_delay_seconds,
             )
             application.state.settings = config
             logger.info(
-                "Starting RecommendMeAnime API (environment=%s, cors_origins=%d, cache_ttl_seconds=%d)",
+                "Starting RecommendMeAnime API (environment=%s, cors_origins=%d, cache_ttl_seconds=%d, "
+                "exact_cache_ttl_seconds=%d, exact_probe_wait_seconds=%.1f, "
+                "exact_probe_max_page=%d, anilist_max_concurrency=%d)",
                 config.app_env,
                 len(config.cors_allowed_origins),
                 config.cache_ttl_seconds,
+                config.exact_pagination_cache_ttl_seconds,
+                config.anilist_exact_probe_response_wait_seconds,
+                config.anilist_exact_probe_max_page,
+                config.anilist_max_concurrency,
             )
             try:
                 yield
@@ -61,8 +81,28 @@ def create_app(config: Settings = settings) -> FastAPI:
     async def anilist_timeout_handler(_: Request, error: AniListTimeoutError) -> JSONResponse:
         logger.warning("AniList request timed out: %s", error.__class__.__name__)
         return JSONResponse(
-            status_code=504,
-            content={"detail": "AniList is taking too long to respond. Please try again shortly."},
+            status_code=503,
+            content={"detail": "The catalogue provider is temporarily unavailable. Please try again shortly."},
+        )
+
+    @application.exception_handler(AniListRateLimitError)
+    async def anilist_rate_limit_handler(_: Request, error: AniListRateLimitError) -> JSONResponse:
+        logger.warning(
+            "AniList rate limit persisted attempts=%d retry_after=%s",
+            error.attempts,
+            error.retry_after,
+        )
+        return JSONResponse(
+            status_code=503,
+            content={"detail": "The catalogue provider is temporarily unavailable. Please try again shortly."},
+        )
+
+    @application.exception_handler(AniListUpstreamError)
+    async def anilist_upstream_handler(_: Request, error: AniListUpstreamError) -> JSONResponse:
+        logger.warning("AniList temporary upstream failure status=%d", error.status_code)
+        return JSONResponse(
+            status_code=503,
+            content={"detail": "The catalogue provider is temporarily unavailable. Please try again shortly."},
         )
 
     @application.exception_handler(AniListUnavailableError)
@@ -70,7 +110,7 @@ def create_app(config: Settings = settings) -> FastAPI:
         logger.warning("AniList is unavailable: %s", error.__class__.__name__)
         return JSONResponse(
             status_code=503,
-            content={"detail": "AniList is temporarily unavailable. Please try again shortly."},
+            content={"detail": "The catalogue provider is temporarily unavailable. Please try again shortly."},
         )
 
     @application.exception_handler(AniListResponseError)

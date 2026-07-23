@@ -14,6 +14,7 @@ load_dotenv()
 
 DEFAULT_ANILIST_API_URL = "https://graphql.anilist.co"
 DEFAULT_FRONTEND_ORIGIN = "http://localhost:3000"
+DEFAULT_ANILIST_EXACT_PROBE_MAX_PAGE = 100
 
 
 class ConfigurationError(ValueError):
@@ -27,6 +28,14 @@ class Settings:
     external_api_timeout_seconds: float
     cors_allowed_origins: tuple[str, ...]
     cache_ttl_seconds: int
+    exact_pagination_cache_ttl_seconds: int
+    anilist_exact_probe_response_wait_seconds: float
+    anilist_exact_probe_max_page: int
+    stale_if_error_seconds: int
+    anilist_max_concurrency: int
+    anilist_max_retries: int
+    anilist_retry_fallback_seconds: float
+    anilist_max_retry_delay_seconds: float
     log_level: str
 
 
@@ -84,6 +93,13 @@ def _parse_non_negative_int(values: Mapping[str, str], name: str, default: int) 
     return value
 
 
+def _parse_positive_int(values: Mapping[str, str], name: str, default: int) -> int:
+    value = _parse_non_negative_int(values, name, default)
+    if value == 0:
+        raise ConfigurationError(f"{name} must be greater than zero.")
+    return value
+
+
 def _parse_log_level(values: Mapping[str, str]) -> str:
     level = values.get("LOG_LEVEL", "INFO").upper()
     if level not in logging.getLevelNamesMapping():
@@ -106,6 +122,34 @@ def get_settings(values: Mapping[str, str] | None = None) -> Settings:
         external_api_timeout_seconds=_parse_positive_float(source, "EXTERNAL_API_TIMEOUT_SECONDS", 10),
         cors_allowed_origins=_parse_origins(source),
         cache_ttl_seconds=_parse_non_negative_int(source, "CACHE_TTL_SECONDS", 3600),
+        exact_pagination_cache_ttl_seconds=_parse_non_negative_int(
+            source,
+            "EXACT_PAGINATION_CACHE_TTL_SECONDS",
+            3600,
+        ),
+        anilist_exact_probe_response_wait_seconds=_parse_positive_float(
+            source,
+            "ANILIST_EXACT_PROBE_RESPONSE_WAIT_SECONDS",
+            3,
+        ),
+        anilist_exact_probe_max_page=_parse_positive_int(
+            source,
+            "ANILIST_EXACT_PROBE_MAX_PAGE",
+            DEFAULT_ANILIST_EXACT_PROBE_MAX_PAGE,
+        ),
+        stale_if_error_seconds=_parse_non_negative_int(source, "ANILIST_STALE_IF_ERROR_SECONDS", 3600),
+        anilist_max_concurrency=_parse_positive_int(source, "ANILIST_MAX_CONCURRENCY", 4),
+        anilist_max_retries=_parse_non_negative_int(source, "ANILIST_MAX_RETRIES", 1),
+        anilist_retry_fallback_seconds=_parse_positive_float(
+            source,
+            "ANILIST_RETRY_FALLBACK_SECONDS",
+            1,
+        ),
+        anilist_max_retry_delay_seconds=_parse_positive_float(
+            source,
+            "ANILIST_MAX_RETRY_DELAY_SECONDS",
+            30,
+        ),
         log_level=_parse_log_level(source),
     )
 

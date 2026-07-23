@@ -1,10 +1,10 @@
-import { HeroCarousel } from "@/components/home/HeroCarousel";
+import type { ReactNode } from "react";
+
 import { HeroSearch } from "@/components/home/HeroSearch";
 import { ButtonLink } from "@/components/ui/Button";
 import { ArrowRightIcon } from "@/components/ui/Icons";
-import type { Anime } from "@/types/anime";
 
-export function Hero({ fallbackRecommendations }: { fallbackRecommendations: Anime[] }) {
+export function Hero({ recommendations }: { recommendations: ReactNode }) {
   return (
     <section className="home-hero relative isolate overflow-clip border-b border-line/45">
       <div aria-hidden="true" className="pointer-events-none absolute left-[44%] top-1/2 -z-10 size-[32rem] -translate-y-1/2 rounded-full bg-brand/[0.07] blur-[110px]" />
@@ -36,7 +36,7 @@ export function Hero({ fallbackRecommendations }: { fallbackRecommendations: Ani
         </div>
 
         <div className="min-w-0 animate-enter" style={{ animationDelay: "120ms" }}>
-          <HeroCarousel fallbackItems={fallbackRecommendations} />
+          {recommendations}
         </div>
       </div>
     </section>

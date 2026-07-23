@@ -11,7 +11,8 @@ export const HERO_FALLBACK_CACHE_SECONDS = 3600;
 
 function hasCompletePosterMetadata(anime: Anime): boolean {
   return Boolean(
-    anime.coverImage
+    anime.isAdult !== true
+      && anime.coverImage
       && anime.title
       && anime.title !== "Untitled anime"
       && anime.format
