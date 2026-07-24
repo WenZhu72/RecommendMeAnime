@@ -43,10 +43,12 @@ export type Anime = {
 export type AnimePageInfo = {
   currentPage: number;
   hasNextPage: boolean;
-  lastPage: number;
+  lastPage: number | null;
   perPage: number;
-  total: number;
+  total: number | null;
   isExact: boolean;
+  verificationStatus: "verified" | "stale" | "calculating" | "estimated" | "failed";
+  lastVerifiedAt: string | null;
 };
 
 export type AnimeListResponse = {

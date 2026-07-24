@@ -26,6 +26,34 @@
   animation-delay: var(--anime-grid-stagger-delay, 0ms);
 }
 
+.imagePlaceholder {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: var(--color-surface-raised);
+  opacity: 1;
+  transition: opacity 400ms var(--ease-product);
+}
+
+.imagePlaceholderLoaded {
+  opacity: 0;
+}
+
+.imagePlaceholderLoaded::after {
+  animation: none;
+}
+
+.cardImage {
+  opacity: 0;
+  transition:
+    opacity 400ms var(--ease-product),
+    transform 500ms var(--ease-product);
+}
+
+.cardImageLoaded {
+  opacity: 1;
+}
+
 .resultCard {
   height: 100%;
   opacity: 0;
@@ -80,5 +108,10 @@
     opacity: 0.12;
     transform: none;
     animation: none;
+  }
+
+  .imagePlaceholder,
+  .cardImage {
+    transition-duration: 0.01ms;
   }
 }

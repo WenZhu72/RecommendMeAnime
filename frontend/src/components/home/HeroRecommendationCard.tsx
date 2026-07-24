@@ -73,6 +73,7 @@ export function HeroRecommendationCard({
       src={anime.coverImage}
       alt={visuallyActive ? `Cover art for ${anime.title}` : ""}
       fill
+      loading={priority ? "eager" : "lazy"}
       priority={priority}
       unoptimized
       draggable={false}

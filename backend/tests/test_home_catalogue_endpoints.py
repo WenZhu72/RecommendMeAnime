@@ -1,8 +1,7 @@
 from fastapi.testclient import TestClient
 
 from app.api.dependencies import get_anilist_client
-from app.core.config import get_settings
-from app.main import create_app
+from tests.support import create_test_app
 
 
 class HomeCatalogueClient:
@@ -38,7 +37,7 @@ class HomeCatalogueClient:
 
 def test_home_catalogue_endpoints_never_enter_browse_exact_pagination() -> None:
     anilist = HomeCatalogueClient()
-    application = create_app(get_settings({}))
+    application = create_test_app()
     application.dependency_overrides[get_anilist_client] = lambda: anilist
 
     with TestClient(application) as client:
@@ -60,7 +59,7 @@ def test_home_catalogue_endpoints_never_enter_browse_exact_pagination() -> None:
 
 def test_recommendation_candidates_explicitly_skip_exact_pagination() -> None:
     anilist = HomeCatalogueClient()
-    application = create_app(get_settings({}))
+    application = create_test_app()
     application.dependency_overrides[get_anilist_client] = lambda: anilist
 
     with TestClient(application) as client:

@@ -25,6 +25,7 @@ export function AnimeGrid({ anime, animateEntrance = false, eagerFirstImage = fa
             key={item.id}
             anime={item}
             imageLoading={eagerFirstImage && index === 0 ? "eager" : "lazy"}
+            imagePriority={eagerFirstImage && index === 0}
           />
         );
 

@@ -43,6 +43,19 @@ export function buildBrowseAnimePath(options = {}) {
 }
 
 /**
+ * Build the lightweight follow-up path for pagination metadata. It deliberately
+ * carries the same filters and visible page but returns no anime cards.
+ *
+ * @param {BrowsePathOptions} [options]
+ */
+export function buildBrowsePageInfoPath(options = {}) {
+  return buildBrowseAnimePath(options).replace(
+    "/api/anime/browse?",
+    "/api/anime/browse/page-info?",
+  );
+}
+
+/**
  * Convert the public Browse URL state to the same canonical identity used by
  * the server request. This lets client history navigation hide a response
  * whose URL state has already changed but whose replacement has not arrived.

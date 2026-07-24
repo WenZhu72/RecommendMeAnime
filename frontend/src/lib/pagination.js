@@ -3,7 +3,7 @@
  * AniList's total and lastPage values are only displayed when the backend has
  * verified them against a terminal page.
  *
- * @param {{ currentPage: number, lastPage: number, total: number, isExact: boolean }} pageInfo
+ * @param {{ currentPage: number, lastPage: number | null, total: number | null, isExact: boolean }} pageInfo
  */
 export function formatBrowsePagination(pageInfo) {
   const currentPage = Math.max(1, pageInfo.currentPage);
@@ -16,9 +16,9 @@ export function formatBrowsePagination(pageInfo) {
     };
   }
 
-  const lastPage = Math.max(currentPage, pageInfo.lastPage, 1);
-  const total = Math.max(0, pageInfo.total);
-  const titleCount = `${total.toLocaleString("en-US")} title${total === 1 ? "" : "s"}`;
+  const lastPage = Math.max(currentPage, pageInfo.lastPage ?? currentPage, 1);
+  const total = Math.max(0, pageInfo.total ?? 0);
+  const titleCount = `${total.toLocaleString("en-US")} anime`;
 
   return {
     titleCount,

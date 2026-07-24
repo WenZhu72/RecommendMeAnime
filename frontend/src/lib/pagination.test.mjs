@@ -19,8 +19,8 @@ test("verified metadata is presented consistently in the heading and pagination"
   assert.deepEqual(
     formatBrowsePagination({ currentPage: 3, lastPage: 3, total: 46, isExact: true }),
     {
-      titleCount: "46 titles",
-      pageSummary: "Page 3 of 3 / 46 titles",
+      titleCount: "46 anime",
+      pageSummary: "Page 3 of 3 / 46 anime",
       compactPage: "3 / 3",
     },
   );
@@ -30,8 +30,8 @@ test("verified dropdown metadata shows the exact count from page 1", () => {
   assert.deepEqual(
     formatBrowsePagination({ currentPage: 1, lastPage: 3, total: 46, isExact: true }),
     {
-      titleCount: "46 titles",
-      pageSummary: "Page 1 of 3 / 46 titles",
+      titleCount: "46 anime",
+      pageSummary: "Page 1 of 3 / 46 anime",
       compactPage: "1 / 3",
     },
   );
@@ -41,7 +41,7 @@ test("new inexact metadata never reuses an exact count from the previous filter"
   const previous = formatBrowsePagination({ currentPage: 2, lastPage: 4, total: 61, isExact: true });
   const next = formatBrowsePagination({ currentPage: 1, lastPage: 250, total: 5000, isExact: false });
 
-  assert.equal(previous.titleCount, "61 titles");
+  assert.equal(previous.titleCount, "61 anime");
   assert.equal(next.titleCount, null);
   assert.equal(next.pageSummary, "Page 1");
 });

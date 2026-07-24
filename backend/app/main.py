@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -21,17 +22,34 @@ from app.core.exceptions import (
     AniListUnavailableError,
     AniListUpstreamError,
 )
+from app.repositories.pagination_metadata import PaginationMetadataStore
+from app.services.browse_cache import BrowsePageCache
+from app.services.pagination_metadata import PaginationMetadataService
 
 configure_logging(settings.log_level)
 logger = logging.getLogger(__name__)
 
 
-def create_app(config: Settings = settings) -> FastAPI:
+def create_app(
+    config: Settings = settings,
+    *,
+    pagination_store: PaginationMetadataStore | None = None,
+) -> FastAPI:
     """Create the API application with explicit, deployment-safe configuration."""
+
+    pagination_store = pagination_store or PaginationMetadataStore(config.database_url)
+    browse_page_cache = BrowsePageCache(
+        max_entries=config.browse_cache_max_entries,
+        hot_ttl_seconds=config.browse_cache_hot_page_ttl_seconds,
+        warm_ttl_seconds=config.browse_cache_warm_page_ttl_seconds,
+        cold_ttl_seconds=config.browse_cache_cold_page_ttl_seconds,
+        hot_access_threshold=config.browse_cache_hot_access_threshold,
+    )
 
     @asynccontextmanager
     async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         timeout = httpx.Timeout(config.external_api_timeout_seconds)
+        await pagination_store.initialise()
         async with httpx.AsyncClient(base_url=config.anilist_api_url, timeout=timeout) as http_client:
             application.state.anilist_client = AniListClient(
                 http_client,
@@ -46,6 +64,15 @@ def create_app(config: Settings = settings) -> FastAPI:
                 max_retry_delay_seconds=config.anilist_max_retry_delay_seconds,
             )
             application.state.settings = config
+            application.state.pagination_metadata_store = pagination_store
+            application.state.browse_page_cache = browse_page_cache
+            application.state.pagination_services = {
+                id(application.state.anilist_client): PaginationMetadataService(
+                    store=pagination_store,
+                    client=application.state.anilist_client,
+                    settings=config,
+                )
+            }
             logger.info(
                 "Starting RecommendMeAnime API (environment=%s, cors_origins=%d, cache_ttl_seconds=%d, "
                 "exact_cache_ttl_seconds=%d, exact_probe_wait_seconds=%.1f, "
@@ -62,6 +89,15 @@ def create_app(config: Settings = settings) -> FastAPI:
                 yield
             finally:
                 logger.info("Stopping RecommendMeAnime API")
+                await application.state.browse_page_cache.shutdown()
+                await asyncio.gather(
+                    *(
+                        service.shutdown()
+                        for service in application.state.pagination_services.values()
+                    ),
+                    return_exceptions=True,
+                )
+                await pagination_store.close()
 
     application = FastAPI(
         title="RecommendMeAnime API",
@@ -69,6 +105,12 @@ def create_app(config: Settings = settings) -> FastAPI:
         description="A typed FastAPI proxy between RecommendMeAnime and AniList.",
         lifespan=lifespan,
     )
+    # These state objects are also available to ASGI harnesses that do not run
+    # lifespan events. The repository initialises lazily on first access.
+    application.state.settings = config
+    application.state.pagination_metadata_store = pagination_store
+    application.state.browse_page_cache = browse_page_cache
+    application.state.pagination_services = {}
     application.add_middleware(
         CORSMiddleware,
         allow_origins=list(config.cors_allowed_origins),

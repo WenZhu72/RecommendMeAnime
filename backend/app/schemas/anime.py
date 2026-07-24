@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from datetime import datetime
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -58,6 +61,25 @@ class PageInfo(ApiModel):
     is_exact: bool = Field(default=True, serialization_alias="isExact")
 
 
+class BrowsePageInfo(ApiModel):
+    current_page: int = Field(serialization_alias="currentPage")
+    has_next_page: bool = Field(serialization_alias="hasNextPage")
+    last_page: int | None = Field(default=None, serialization_alias="lastPage")
+    per_page: int = Field(serialization_alias="perPage")
+    total: int | None = None
+    is_exact: bool = Field(default=True, serialization_alias="isExact")
+    verification_status: Literal["verified", "stale", "calculating", "estimated", "failed"] = Field(
+        default="verified",
+        serialization_alias="verificationStatus",
+    )
+    last_verified_at: datetime | None = Field(default=None, serialization_alias="lastVerifiedAt")
+
+
 class AnimeListResponse(ApiModel):
     items: list[Anime] = Field(default_factory=list)
     page_info: PageInfo = Field(serialization_alias="pageInfo")
+
+
+class BrowseAnimeListResponse(ApiModel):
+    items: list[Anime] = Field(default_factory=list)
+    page_info: BrowsePageInfo = Field(serialization_alias="pageInfo")

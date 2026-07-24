@@ -9,7 +9,7 @@ import {
 } from "react";
 
 import { useBrowseNavigation } from "@/components/browse/BrowseNavigation";
-import { browseAnime, type BrowseOptions } from "@/lib/api/anime";
+import { getBrowsePageInfo, type BrowseOptions } from "@/lib/api/anime";
 import { pollForExactBrowsePagination } from "@/lib/browse-pagination-refresh";
 import { formatBrowsePagination } from "@/lib/pagination";
 import type { AnimePageInfo } from "@/types/anime";
@@ -35,7 +35,12 @@ export function BrowsePaginationMetadataProvider({
   useEffect(() => {
     if (
       !initialPageInfo
-      || initialPageInfo.isExact
+      || (
+        initialPageInfo.isExact
+        && initialPageInfo.verificationStatus !== "stale"
+      )
+      || initialPageInfo.verificationStatus === "estimated"
+      || initialPageInfo.verificationStatus === "failed"
       || (targetRequestKey !== null && targetRequestKey !== responseKey)
     ) return;
 
@@ -47,9 +52,10 @@ export function BrowsePaginationMetadataProvider({
       requestKey: responseKey,
       signal: controller.signal,
       isCurrentRequest: (requestKey) => isCurrent && requestKey === responseKey,
-      fetchPageInfo: async (signal) => (
-        await browseAnime(browseOptions, { retry: false, signal })
-      ).pageInfo,
+      fetchPageInfo: (signal) => getBrowsePageInfo(
+        browseOptions,
+        { retry: false, signal },
+      ),
     }).then((exactPageInfo) => {
       if (exactPageInfo && isCurrent && !controller.signal.aborted) {
         setPageInfo(exactPageInfo);

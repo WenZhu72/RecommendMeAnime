@@ -1,8 +1,8 @@
 import { ApiError, apiRequest, queryString } from "@/lib/api/client";
 import { sanitizePublicAnime, sanitizePublicAnimeList } from "@/lib/anime-safety";
-import { buildBrowseAnimePath } from "@/lib/browse-path";
+import { buildBrowseAnimePath, buildBrowsePageInfoPath } from "@/lib/browse-path";
 import { buildHomeCataloguePath } from "@/lib/home-catalogue";
-import type { Anime, AnimeListResponse } from "@/types/anime";
+import type { Anime, AnimeListResponse, AnimePageInfo } from "@/types/anime";
 
 type PageOptions = { page?: number; perPage?: number };
 type HeroFallbackCandidateOptions = Required<PageOptions> & {
@@ -80,6 +80,16 @@ export async function browseAnime(
     { cache: "no-store", ...requestOptions },
   );
   return sanitizePublicAnimeList(response);
+}
+
+export async function getBrowsePageInfo(
+  options: BrowseOptions = {},
+  requestOptions: BrowseRequestOptions = {},
+): Promise<AnimePageInfo> {
+  return apiRequest<AnimePageInfo>(
+    buildBrowsePageInfoPath(options),
+    { cache: "no-store", ...requestOptions },
+  );
 }
 
 export async function getAnimeById(id: number): Promise<Anime | null> {

@@ -12,6 +12,8 @@ function pageInfo(isExact: boolean): AnimePageInfo {
     perPage: 20,
     total: isExact ? 46 : 0,
     isExact,
+    verificationStatus: isExact ? "verified" : "calculating",
+    lastVerifiedAt: isExact ? "2026-07-23T10:00:00Z" : null,
   };
 }
 
@@ -59,6 +61,30 @@ test("cached exact metadata does not make a follow-up request", async () => {
   });
 
   assert.equal(fetches, 0);
+  assert.deepEqual(result, pageInfo(true));
+});
+
+test("known stale metadata stays visible while one follow-up verifies it", async () => {
+  const controller = new AbortController();
+  const stale = {
+    ...pageInfo(true),
+    verificationStatus: "stale" as const,
+  };
+  let fetches = 0;
+
+  const result = await pollForExactBrowsePagination({
+    initialPageInfo: stale,
+    requestKey: "year=2026",
+    signal: controller.signal,
+    wait: noDelay,
+    isCurrentRequest: () => true,
+    fetchPageInfo: async () => {
+      fetches += 1;
+      return pageInfo(true);
+    },
+  });
+
+  assert.equal(fetches, 1);
   assert.deepEqual(result, pageInfo(true));
 });
 

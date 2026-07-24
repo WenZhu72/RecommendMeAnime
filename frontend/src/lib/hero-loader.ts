@@ -2,7 +2,7 @@ import { selectRandomHeroPages } from "./hero-fallback.js";
 
 type HeroCandidatePage<T> = {
   items: T[];
-  pageInfo: { lastPage: number };
+  pageInfo: { lastPage: number | null };
 };
 
 type LoadHeroCandidatesOptions<T> = {
@@ -26,11 +26,12 @@ export async function loadHeroCandidates<T>({
 }: LoadHeroCandidatesOptions<T>): Promise<T[]> {
   const firstPage = await getCandidatePage(1);
   const firstPageSelection = selectCandidates(firstPage.items);
-  if (firstPageSelection.length >= limit || firstPage.pageInfo.lastPage <= 1) {
+  const lastPage = firstPage.pageInfo.lastPage ?? 1;
+  if (firstPageSelection.length >= limit || lastPage <= 1) {
     return firstPageSelection.slice(0, limit);
   }
 
-  const availableNonFirstPages = Math.max(0, firstPage.pageInfo.lastPage - 1);
+  const availableNonFirstPages = Math.max(0, lastPage - 1);
   const sampledPages = selectRandomHeroPages(
     availableNonFirstPages,
     Math.min(randomPageCount, availableNonFirstPages),

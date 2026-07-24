@@ -235,3 +235,8 @@ coverage/
 *.pyc
 dist/
 build/
+
+pagination_metadata.db
+*.db
+*.db-shm
+*.db-wal

@@ -358,6 +358,7 @@ async def _exact_page_info(
         season_year=season_year,
         minimum_score=minimum_score,
         sort=sort,
+        per_page=per_page,
     )
     max_probe_page = getattr(client, "exact_probe_max_page", DEFAULT_ANILIST_EXACT_PROBE_MAX_PAGE)
     cache_reader = getattr(client, "get_cached_exact_pagination", None)

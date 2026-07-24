@@ -2,10 +2,12 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 
-from app.api.dependencies import get_anilist_client
+from app.api.dependencies import get_anilist_client, get_browse_service
 from app.clients.anilist import AniListClient
 from app.core.exceptions import AnimeNotFoundError
-from app.schemas.anime import Anime, AnimeListResponse
+from app.schemas.anime import Anime, AnimeListResponse, BrowseAnimeListResponse, BrowsePageInfo
+from app.services.browse_filters import BrowseFilterSet
+from app.services.browse_service import BrowseService
 from app.services.anime_service import SORTS, get_anime_by_id, get_anime_list
 
 router = APIRouter(prefix="/api/anime", tags=["Anime"])
@@ -13,6 +15,7 @@ router = APIRouter(prefix="/api/anime", tags=["Anime"])
 Page = Annotated[int, Query(ge=1, description="One-indexed page number.")]
 PerPage = Annotated[int, Query(ge=1, le=50, description="Number of titles to return (maximum 50).")]
 Client = Annotated[AniListClient, Depends(get_anilist_client)]
+Browse = Annotated[BrowseService, Depends(get_browse_service)]
 AnimeFormat = Literal["TV", "MOVIE", "OVA", "ONA", "SPECIAL"]
 AnimeSeason = Literal["WINTER", "SPRING", "SUMMER", "FALL"]
 BrowseSort = Literal["trending", "popular", "top-rated"]
@@ -32,7 +35,14 @@ async def search_anime(
     page: Page = 1,
     per_page: PerPage = 20,
 ) -> AnimeListResponse:
-    return await get_anime_list(client, page=page, per_page=per_page, search=_required_query(q), sort=SORTS["search"])
+    return await get_anime_list(
+        client,
+        page=page,
+        per_page=per_page,
+        search=_required_query(q),
+        sort=SORTS["search"],
+        exact_pagination=False,
+    )
 
 
 @router.get("/trending", response_model=AnimeListResponse, summary="Get currently trending anime")
@@ -63,9 +73,9 @@ async def anime_by_genre(
     return await get_anime_list(client, page=page, per_page=per_page, genre=cleaned_genre, sort=SORTS["popular"])
 
 
-@router.get("/browse", response_model=AnimeListResponse, summary="Browse anime with optional filters")
+@router.get("/browse", response_model=BrowseAnimeListResponse, summary="Browse anime with optional filters")
 async def browse_anime(
-    client: Client,
+    browse: Browse,
     page: Page = 1,
     per_page: PerPage = 20,
     search: Annotated[str | None, Query(max_length=100, description="Optional title search.")] = None,
@@ -75,18 +85,60 @@ async def browse_anime(
     season_year: Annotated[int | None, Query(ge=1940, le=2100)] = None,
     minimum_score: Annotated[int | None, Query(ge=0, le=100)] = None,
     sort: BrowseSort = "popular",
-) -> AnimeListResponse:
+) -> BrowseAnimeListResponse:
     cleaned_search = _required_query(search) if search is not None else None
     cleaned_genres = [genre.strip() for genre in (genres or [])]
     if any(not genre or len(genre) > 64 for genre in cleaned_genres):
         raise HTTPException(status_code=400, detail="Genres must contain between 1 and 64 characters.")
     if len(cleaned_genres) > 10:
         raise HTTPException(status_code=400, detail="A maximum of 10 genres can be selected.")
-    return await get_anime_list(
-        client, page=page, per_page=per_page, search=cleaned_search, genre_in=cleaned_genres or None,
-        anime_format=anime_format, season=season, season_year=season_year,
-        minimum_score=minimum_score, sort=SORTS[sort], exact_pagination=True,
+    filters = BrowseFilterSet.create(
+        search=cleaned_search,
+        genres=cleaned_genres,
+        anime_format=anime_format,
+        season=season,
+        season_year=season_year,
+        minimum_score=minimum_score,
+        sort=SORTS[sort],
+        per_page=per_page,
     )
+    return await browse.browse(filters, page=page)
+
+
+@router.get(
+    "/browse/page-info",
+    response_model=BrowsePageInfo,
+    summary="Resolve persistent Browse pagination metadata",
+)
+async def browse_page_info(
+    browse: Browse,
+    page: Page = 1,
+    per_page: PerPage = 20,
+    search: Annotated[str | None, Query(max_length=100)] = None,
+    genres: Annotated[list[str] | None, Query(alias="genre")] = None,
+    anime_format: Annotated[AnimeFormat | None, Query(alias="format")] = None,
+    season: AnimeSeason | None = None,
+    season_year: Annotated[int | None, Query(ge=1940, le=2100)] = None,
+    minimum_score: Annotated[int | None, Query(ge=0, le=100)] = None,
+    sort: BrowseSort = "popular",
+) -> BrowsePageInfo:
+    cleaned_search = _required_query(search) if search is not None else None
+    cleaned_genres = [genre.strip() for genre in (genres or [])]
+    if any(not genre or len(genre) > 64 for genre in cleaned_genres):
+        raise HTTPException(status_code=400, detail="Genres must contain between 1 and 64 characters.")
+    if len(cleaned_genres) > 10:
+        raise HTTPException(status_code=400, detail="A maximum of 10 genres can be selected.")
+    filters = BrowseFilterSet.create(
+        search=cleaned_search,
+        genres=cleaned_genres,
+        anime_format=anime_format,
+        season=season,
+        season_year=season_year,
+        minimum_score=minimum_score,
+        sort=SORTS[sort],
+        per_page=per_page,
+    )
+    return await browse.page_info(filters, page=page)
 
 
 @router.get("/{anime_id}", response_model=Anime, summary="Get detailed anime information")

@@ -14,7 +14,7 @@ from app.clients.anilist import (
     build_page_query_and_variables,
     build_page_query_identity,
 )
-from app.core.config import get_settings
+from app.core.config import ConfigurationError, get_settings
 from app.core.exceptions import (
     AniListGraphQLError,
     AniListMalformedResponseError,
@@ -24,23 +24,64 @@ from app.core.exceptions import (
     AniListUnavailableError,
     AniListUpstreamError,
 )
-from app.main import create_app
 from app.services.anime_service import get_anime_list
+from tests.support import create_test_app, make_test_settings
 
 
-def test_health_check_and_startup_without_a_local_env_file() -> None:
-    # Passing an empty mapping proves the application has safe defaults without .env.
-    application = create_app(get_settings({}))
+def test_health_check_starts_with_explicit_test_database_configuration() -> None:
+    application = create_test_app()
     with TestClient(application) as client:
         response = client.get("/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
 
 
+def test_database_url_is_required() -> None:
+    with pytest.raises(ConfigurationError, match="DATABASE_URL is required"):
+        get_settings({"ENVIRONMENT": "development"})
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        {
+            "ENVIRONMENT": "production",
+            "DATABASE_URL": (
+                "postgresql+psycopg://postgres:development"
+                "@localhost:5432/recommend_me_anime"
+            ),
+        },
+        {
+            "ENVIRONMENT": "development",
+            "DATABASE_URL": (
+                "postgresql+psycopg://neondb_owner:secret"
+                "@ep-example.eu-west-2.aws.neon.tech/neondb?sslmode=require"
+            ),
+        },
+        {
+            "ENVIRONMENT": "production",
+            "DATABASE_URL": (
+                "postgresql+psycopg://neondb_owner:secret"
+                "@ep-example.eu-west-2.aws.neon.tech/neondb"
+            ),
+        },
+    ],
+)
+def test_environment_separation_rejects_unsafe_database_targets(
+    values: dict[str, str],
+) -> None:
+    with pytest.raises(ConfigurationError):
+        get_settings(values)
+
+
 def test_settings_parse_multiple_normalised_cors_origins() -> None:
     settings = get_settings(
         {
-            "APP_ENV": "production",
+            "ENVIRONMENT": "production",
+            "DATABASE_URL": (
+                "postgresql://neondb_owner:secret@ep-example.eu-west-2.aws.neon.tech/"
+                "neondb?sslmode=require"
+            ),
             "CORS_ALLOWED_ORIGINS": " http://localhost:3000/ , https://recommend-me-anime.vercel.app/ ",
             "EXTERNAL_API_TIMEOUT_SECONDS": "12.5",
             "CACHE_TTL_SECONDS": "120",
@@ -56,6 +97,7 @@ def test_settings_parse_multiple_normalised_cors_origins() -> None:
         }
     )
     assert settings.app_env == "production"
+    assert settings.database_url.startswith("postgresql+psycopg://")
     assert settings.cors_allowed_origins == (
         "http://localhost:3000",
         "https://recommend-me-anime.vercel.app",
@@ -74,8 +116,8 @@ def test_settings_parse_multiple_normalised_cors_origins() -> None:
 
 
 def test_cors_accepts_local_and_configured_origins_but_rejects_others() -> None:
-    application = create_app(
-        get_settings(
+    application = create_test_app(
+        make_test_settings(
             {
                 "CORS_ALLOWED_ORIGINS": "http://localhost:3000,https://recommend-me-anime.vercel.app",
             }
@@ -455,7 +497,7 @@ class RestrictedDetailAniListClient:
     ],
 )
 def test_upstream_failures_return_stable_gateway_responses(upstream_error: Exception, expected_status: int) -> None:
-    application = create_app(get_settings({}))
+    application = create_test_app()
     application.dependency_overrides[get_anilist_client] = lambda: FailingAniListClient(upstream_error)
     with TestClient(application) as client:
         response = client.get("/api/anime/trending")
@@ -465,7 +507,7 @@ def test_upstream_failures_return_stable_gateway_responses(upstream_error: Excep
 
 
 def test_invalid_search_parameters_are_stable_and_frontend_response_is_compatible() -> None:
-    application = create_app(get_settings({}))
+    application = create_test_app()
     application.dependency_overrides[get_anilist_client] = lambda: FakeAniListClient()
     with TestClient(application) as client:
         invalid_query = client.get("/api/anime/search", params={"q": "   "})
@@ -519,7 +561,7 @@ def test_invalid_search_parameters_are_stable_and_frontend_response_is_compatibl
 
 def test_browse_forwards_search_filters_and_pagination_to_anilist() -> None:
     recording_client = RecordingAniListClient()
-    application = create_app(get_settings({}))
+    application = create_test_app()
     application.dependency_overrides[get_anilist_client] = lambda: recording_client
 
     with TestClient(application) as client:
@@ -542,17 +584,19 @@ def test_browse_forwards_search_filters_and_pagination_to_anilist() -> None:
     assert response.json()["pageInfo"] == {
         "currentPage": 3,
         "hasNextPage": True,
-        "lastPage": 4,
+        "lastPage": None,
         "perPage": 20,
-        "total": 61,
-        "isExact": True,
+        "total": None,
+        "isExact": False,
+        "verificationStatus": "calculating",
+        "lastVerifiedAt": None,
     }
     assert recording_client.parameters == {
         "page": 3,
         "per_page": 20,
         "search": "Frieren",
         "genre": None,
-        "genre_in": ["Fantasy", "Adventure"],
+        "genre_in": ["Adventure", "Fantasy"],
         "anime_format": "TV",
         "format_in": None,
         "season": None,
@@ -560,16 +604,15 @@ def test_browse_forwards_search_filters_and_pagination_to_anilist() -> None:
         "minimum_score": 80,
         "sort": ["SCORE_DESC", "POPULARITY_DESC"],
     }
-    assert [int(call["page"]) for call in recording_client.calls] == [3, 1, 2]
-    assert [int(call["per_page"]) for call in recording_client.calls] == [20, 50, 50]
-    assert recording_client.calls[1] == {**recording_client.parameters, "page": 1, "per_page": 50}
-    assert recording_client.calls[2] == {**recording_client.parameters, "page": 2, "per_page": 50}
+    assert int(recording_client.calls[0]["page"]) == 3
+    assert all(int(call["per_page"]) == 20 for call in recording_client.calls)
+    assert sum(int(call["page"]) == 3 for call in recording_client.calls) == 1
     assert invalid_page_size.status_code == 400
 
 
 def test_browse_parses_and_forwards_the_year_as_an_integer() -> None:
     recording_client = RecordingAniListClient()
-    application = create_app(get_settings({}))
+    application = create_test_app()
     application.dependency_overrides[get_anilist_client] = lambda: recording_client
 
     with TestClient(application) as client:
@@ -626,7 +669,7 @@ def test_all_anilist_media_queries_request_and_filter_the_adult_flag() -> None:
 
 
 def test_public_lists_and_recommendation_candidates_fail_closed_on_adult_status() -> None:
-    application = create_app(get_settings({}))
+    application = create_test_app()
     application.dependency_overrides[get_anilist_client] = lambda: MixedSafetyAniListClient()
 
     with TestClient(application) as client:
@@ -659,7 +702,7 @@ def test_public_lists_and_recommendation_candidates_fail_closed_on_adult_status(
 
 
 def test_adult_or_unconfirmed_details_are_404_and_nested_lists_are_filtered() -> None:
-    application = create_app(get_settings({}))
+    application = create_test_app()
     application.dependency_overrides[get_anilist_client] = lambda: RestrictedDetailAniListClient()
 
     with TestClient(application) as client:
@@ -675,7 +718,7 @@ def test_adult_or_unconfirmed_details_are_404_and_nested_lists_are_filtered() ->
     assert [item["id"] for item in safe.json()["recommendations"]] == [34]
 
 
-def test_exact_pagination_identity_contains_every_filter_but_not_filter_order() -> None:
+def test_exact_pagination_identity_contains_membership_filters_and_normalises_supported_sorts() -> None:
     base: dict[str, object] = {
         "per_page": 20,
         "search": "Fall anime",
@@ -691,7 +734,7 @@ def test_exact_pagination_identity_contains_every_filter_but_not_filter_order() 
     identity = build_page_query_identity(**base)  # type: ignore[arg-type]
     reordered = {
         **base,
-        "per_page": 50,
+        "per_page": 20,
         "search": "  FALL   ANIME ",
         "genre_in": ["Drama", "Comedy"],
         "format_in": ["ONA", "TV"],
@@ -709,13 +752,21 @@ def test_exact_pagination_identity_contains_every_filter_but_not_filter_order() 
         "season": "SPRING",
         "season_year": 2024,
         "minimum_score": 70,
-        "sort": ["SCORE_DESC", "POPULARITY_DESC"],
     }
     for name, value in changes.items():
         changed = {**base, name: value}
         assert build_page_query_identity(**changed) != identity  # type: ignore[arg-type]
 
-    assert build_page_query_identity(**{**base, "per_page": 50}) == identity  # type: ignore[arg-type]
+    assert build_page_query_identity(
+        **{**base, "sort": ["TRENDING_DESC", "POPULARITY_DESC"]}
+    ) == identity  # type: ignore[arg-type]
+    assert build_page_query_identity(
+        **{**base, "sort": ["SCORE_DESC", "POPULARITY_DESC"]}
+    ) == identity  # type: ignore[arg-type]
+    assert build_page_query_identity(
+        **{**base, "sort": ["FUTURE_SORT_DESC"]}
+    ) != identity  # type: ignore[arg-type]
+    assert build_page_query_identity(**{**base, "per_page": 50}) != identity  # type: ignore[arg-type]
 
 
 def test_anilist_client_caches_exact_pagination_metadata_by_query_identity() -> None:
@@ -961,68 +1012,47 @@ def test_temporary_anilist_failure_uses_a_stale_cached_page(monkeypatch: pytest.
 
 def test_dropdown_browse_resolves_and_caches_exact_metadata_across_every_page() -> None:
     degraded_client = DegradedBrowsePageInfoClient()
-    application = create_app(get_settings({}))
+    application = create_test_app()
     application.dependency_overrides[get_anilist_client] = lambda: degraded_client
 
     with TestClient(application) as client:
-        responses = [
-            client.get(
-                "/api/anime/browse",
-                params={
-                    "format": "TV",
-                    "season": "FALL",
-                    "season_year": 2025,
-                    "sort": "popular",
-                    "page": page,
-                    "per_page": 20,
-                },
-            )
-            for page in (1, 2, 3)
-        ]
+        parameters = {
+            "format": "TV",
+            "season": "FALL",
+            "season_year": 2025,
+            "sort": "popular",
+            "per_page": 20,
+        }
+        first = client.get("/api/anime/browse", params={**parameters, "page": 1})
+        metadata = client.get("/api/anime/browse/page-info", params={**parameters, "page": 1})
+        second = client.get("/api/anime/browse", params={**parameters, "page": 2})
+        third = client.get("/api/anime/browse", params={**parameters, "page": 3})
 
-    assert [response.status_code for response in responses] == [200, 200, 200]
-    assert [response.json()["pageInfo"] for response in responses] == [
-        {
-            "currentPage": 1,
-            "hasNextPage": True,
-            "lastPage": 3,
-            "perPage": 20,
-            "total": 46,
-            "isExact": True,
-        },
-        {
-            "currentPage": 2,
-            "hasNextPage": True,
-            "lastPage": 3,
-            "perPage": 20,
-            "total": 46,
-            "isExact": True,
-        },
-        {
-            "currentPage": 3,
-            "hasNextPage": False,
-            "lastPage": 3,
-            "perPage": 20,
-            "total": 46,
-            "isExact": True,
-        },
-    ]
-    assert [int(call["page"]) for call in degraded_client.calls] == [1, 1, 2, 3]
-    assert int(degraded_client.calls[1]["per_page"]) == 50
-    assert len(degraded_client.exact_pagination) == 1
+    assert [response.status_code for response in (first, metadata, second, third)] == [200, 200, 200, 200]
+    assert metadata.json()["lastPage"] == 3
+    assert metadata.json()["total"] == 46
+    assert metadata.json()["isExact"] is True
+    assert second.json()["pageInfo"]["lastPage"] == 3
+    assert third.json()["pageInfo"]["total"] == 46
+    assert [response.json()["pageInfo"]["currentPage"] for response in (first, second, third)] == [1, 2, 3]
+    assert all(int(call["per_page"]) == 20 for call in degraded_client.calls)
 
 
 def test_search_and_dropdown_browse_requests_share_exact_pagination_behaviour() -> None:
     search_client = DegradedBrowsePageInfoClient()
     dropdown_client = DegradedBrowsePageInfoClient()
-    search_application = create_app(get_settings({}))
-    dropdown_application = create_app(get_settings({}))
+    search_application = create_test_app()
+    dropdown_application = create_test_app()
     search_application.dependency_overrides[get_anilist_client] = lambda: search_client
     dropdown_application.dependency_overrides[get_anilist_client] = lambda: dropdown_client
 
     with TestClient(search_application) as client:
         search_response = client.get(
             "/api/anime/browse",
+            params={"search": "Fall anime", "sort": "popular", "page": 1, "per_page": 20},
+        )
+        search_metadata = client.get(
+            "/api/anime/browse/page-info",
             params={"search": "Fall anime", "sort": "popular", "page": 1, "per_page": 20},
         )
     with TestClient(dropdown_application) as client:
@@ -1037,19 +1067,30 @@ def test_search_and_dropdown_browse_requests_share_exact_pagination_behaviour() 
                 "per_page": 20,
             },
         )
+        dropdown_metadata = client.get(
+            "/api/anime/browse/page-info",
+            params={
+                "format": "TV",
+                "season": "FALL",
+                "season_year": 2025,
+                "sort": "popular",
+                "page": 1,
+                "per_page": 20,
+            },
+        )
 
     assert search_response.status_code == 200
     assert dropdown_response.status_code == 200
-    assert search_response.json()["pageInfo"] == dropdown_response.json()["pageInfo"]
-    assert [int(call["page"]) for call in search_client.calls] == [1, 1]
-    assert [int(call["page"]) for call in dropdown_client.calls] == [1, 1]
-    assert int(search_client.calls[1]["per_page"]) == 50
-    assert int(dropdown_client.calls[1]["per_page"]) == 50
+    assert search_response.json()["pageInfo"]["isExact"] is False
+    assert dropdown_response.json()["pageInfo"]["isExact"] is False
+    assert search_metadata.json()["total"] == dropdown_metadata.json()["total"] == 46
+    assert all(int(call["per_page"]) == 20 for call in search_client.calls)
+    assert all(int(call["per_page"]) == 20 for call in dropdown_client.calls)
 
 
 def test_equivalent_filter_parameters_share_one_canonical_pagination_cache_entry() -> None:
     degraded_client = DegradedBrowsePageInfoClient()
-    application = create_app(get_settings({}))
+    application = create_test_app()
     application.dependency_overrides[get_anilist_client] = lambda: degraded_client
 
     first_filters = [
@@ -1070,16 +1111,19 @@ def test_equivalent_filter_parameters_share_one_canonical_pagination_cache_entry
     ]
     with TestClient(application) as client:
         first_response = client.get("/api/anime/browse", params=first_filters)
+        metadata = client.get("/api/anime/browse/page-info", params=first_filters)
         second_response = client.get("/api/anime/browse", params=reordered_filters)
 
-    assert first_response.json()["pageInfo"] == second_response.json()["pageInfo"]
-    assert [int(call["page"]) for call in degraded_client.calls] == [1, 1, 1]
-    assert len(degraded_client.exact_pagination) == 1
+    assert first_response.json()["pageInfo"]["isExact"] is False
+    assert second_response.json()["pageInfo"]["isExact"] is True
+    assert second_response.json()["items"] == first_response.json()["items"]
+    assert metadata.json()["total"] == 46
+    assert sum(int(call["page"]) == 1 for call in degraded_client.calls) == 1
 
 
 def test_filter_changes_use_a_new_exact_pagination_cache_identity() -> None:
     degraded_client = DegradedBrowsePageInfoClient()
-    application = create_app(get_settings({}))
+    application = create_test_app()
     application.dependency_overrides[get_anilist_client] = lambda: degraded_client
 
     with TestClient(application) as client:
@@ -1091,27 +1135,22 @@ def test_filter_changes_use_a_new_exact_pagination_cache_identity() -> None:
             "/api/anime/browse",
             params={"format": "TV", "season": "FALL", "season_year": 2024},
         )
+        metadata_2025 = client.get(
+            "/api/anime/browse/page-info",
+            params={"format": "TV", "season": "FALL", "season_year": 2025},
+        )
+        metadata_2024 = client.get(
+            "/api/anime/browse/page-info",
+            params={"format": "TV", "season": "FALL", "season_year": 2024},
+        )
 
-    assert fall_2025.json()["pageInfo"] == {
-        "currentPage": 1,
-        "hasNextPage": True,
-        "lastPage": 3,
-        "perPage": 20,
-        "total": 46,
-        "isExact": True,
-    }
-    assert fall_2024.json()["pageInfo"] == {
-        "currentPage": 1,
-        "hasNextPage": True,
-        "lastPage": 2,
-        "perPage": 20,
-        "total": 25,
-        "isExact": True,
-    }
-    assert len(degraded_client.exact_pagination) == 2
+    assert fall_2025.json()["pageInfo"]["isExact"] is False
+    assert fall_2024.json()["pageInfo"]["isExact"] is False
+    assert (metadata_2025.json()["lastPage"], metadata_2025.json()["total"]) == (3, 46)
+    assert (metadata_2024.json()["lastPage"], metadata_2024.json()["total"]) == (2, 25)
 
 
-def test_exact_probe_uses_fifty_items_but_derives_twenty_item_ui_pages() -> None:
+def test_broad_exact_probe_uses_exponential_pages_with_visible_page_size() -> None:
     class Total146Client:
         def __init__(self) -> None:
             self.calls: list[dict[str, object]] = []
@@ -1142,27 +1181,24 @@ def test_exact_probe_uses_fifty_items_but_derives_twenty_item_ui_pages() -> None
             }
 
     anilist = Total146Client()
-    application = create_app(get_settings({}))
+    application = create_test_app()
     application.dependency_overrides[get_anilist_client] = lambda: anilist
 
     with TestClient(application) as client:
         response = client.get("/api/anime/browse", params={"page": 1, "per_page": 20})
+        metadata = client.get("/api/anime/browse/page-info", params={"page": 1, "per_page": 20})
 
     assert response.status_code == 200
-    assert response.json()["pageInfo"] == {
-        "currentPage": 1,
-        "hasNextPage": True,
-        "lastPage": 8,
-        "perPage": 20,
-        "total": 146,
-        "isExact": True,
-    }
-    assert [int(call["per_page"]) for call in anilist.calls] == [20, 50, 50, 50, 50]
+    assert response.json()["pageInfo"]["isExact"] is False
+    assert metadata.json()["lastPage"] == 8
+    assert metadata.json()["total"] == 146
+    assert all(int(call["per_page"]) == 20 for call in anilist.calls)
+    assert [int(call["page"]) for call in anilist.calls] == [1, 2, 4, 8]
 
 
 def test_probe_failure_returns_the_requested_page_with_safe_inexact_metadata() -> None:
     failing_probe_client = ProbeFailurePageInfoClient()
-    application = create_app(get_settings({}))
+    application = create_test_app()
     application.dependency_overrides[get_anilist_client] = lambda: failing_probe_client
 
     with TestClient(application) as client:
@@ -1170,22 +1206,22 @@ def test_probe_failure_returns_the_requested_page_with_safe_inexact_metadata() -
             "/api/anime/browse",
             params={"format": "TV", "season": "FALL", "season_year": 2025},
         )
+        metadata = client.get(
+            "/api/anime/browse/page-info",
+            params={"format": "TV", "season": "FALL", "season_year": 2025},
+        )
 
     assert response.status_code == 200
     assert len(response.json()["items"]) == 20
-    assert response.json()["pageInfo"] == {
-        "currentPage": 1,
-        "hasNextPage": True,
-        "lastPage": 2,
-        "perPage": 20,
-        "total": 0,
-        "isExact": False,
-    }
-    assert failing_probe_client.pages == [1, 1, 2]
+    assert response.json()["pageInfo"]["lastPage"] is None
+    assert response.json()["pageInfo"]["total"] is None
+    assert response.json()["pageInfo"]["isExact"] is False
+    assert metadata.json()["verificationStatus"] == "failed"
+    assert failing_probe_client.pages == [1, 2]
 
 
 def test_browse_does_not_treat_the_anilist_page_ceiling_as_an_exact_final_page() -> None:
-    application = create_app(get_settings({}))
+    application = create_test_app()
     application.dependency_overrides[get_anilist_client] = lambda: CappedPageInfoClient()
 
     with TestClient(application) as client:
@@ -1193,21 +1229,22 @@ def test_browse_does_not_treat_the_anilist_page_ceiling_as_an_exact_final_page()
             "/api/anime/browse",
             params={"page": 250, "per_page": 20},
         )
+        metadata = client.get(
+            "/api/anime/browse/page-info",
+            params={"page": 250, "per_page": 20},
+        )
 
     assert response.status_code == 200
-    assert response.json()["pageInfo"] == {
-        "currentPage": 250,
-        "hasNextPage": False,
-        "lastPage": 250,
-        "perPage": 20,
-        "total": 0,
-        "isExact": False,
-    }
+    assert response.json()["pageInfo"]["lastPage"] is None
+    assert response.json()["pageInfo"]["total"] is None
+    assert response.json()["pageInfo"]["isExact"] is False
+    assert metadata.json()["isExact"] is False
+    assert metadata.json()["verificationStatus"] == "estimated"
 
 
 def test_browse_repairs_degraded_anilist_search_page_info() -> None:
     degraded_client = DegradedSearchPageInfoClient()
-    application = create_app(get_settings({}))
+    application = create_test_app()
     application.dependency_overrides[get_anilist_client] = lambda: degraded_client
 
     with TestClient(application) as client:
@@ -1215,23 +1252,22 @@ def test_browse_repairs_degraded_anilist_search_page_info() -> None:
             "/api/anime/browse",
             params={"search": "Naruto", "page": 1, "per_page": 20},
         )
+        metadata = client.get(
+            "/api/anime/browse/page-info",
+            params={"search": "Naruto", "page": 1, "per_page": 20},
+        )
 
     assert response.status_code == 200
     assert len(response.json()["items"]) == 20
-    assert response.json()["pageInfo"] == {
-        "currentPage": 1,
-        "hasNextPage": True,
-        "lastPage": 2,
-        "perPage": 20,
-        "total": 26,
-        "isExact": True,
-    }
-    assert degraded_client.pages == [1, 1]
+    assert response.json()["pageInfo"]["isExact"] is False
+    assert metadata.json()["lastPage"] == 2
+    assert metadata.json()["total"] == 26
+    assert degraded_client.pages == [1, 2]
 
 
 def test_browse_repairs_degraded_anilist_score_filter_page_info() -> None:
     degraded_client = DegradedScorePageInfoClient()
-    application = create_app(get_settings({}))
+    application = create_test_app()
     application.dependency_overrides[get_anilist_client] = lambda: degraded_client
 
     with TestClient(application) as client:
@@ -1239,22 +1275,21 @@ def test_browse_repairs_degraded_anilist_score_filter_page_info() -> None:
             "/api/anime/browse",
             params={"minimum_score": 85, "sort": "top-rated", "page": 1, "per_page": 50},
         )
+        metadata = client.get(
+            "/api/anime/browse/page-info",
+            params={"minimum_score": 85, "sort": "top-rated", "page": 1, "per_page": 50},
+        )
 
     assert response.status_code == 200
     assert len(response.json()["items"]) == 50
-    assert response.json()["pageInfo"] == {
-        "currentPage": 1,
-        "hasNextPage": True,
-        "lastPage": 3,
-        "perPage": 50,
-        "total": 109,
-        "isExact": True,
-    }
-    assert degraded_client.pages == [1, 1, 2, 4, 3]
+    assert response.json()["pageInfo"]["isExact"] is False
+    assert metadata.json()["lastPage"] == 3
+    assert metadata.json()["total"] == 109
+    assert degraded_client.pages == [1, 2, 3]
 
 
 def test_anime_detail_response_is_frontend_compatible_and_missing_anime_is_404() -> None:
-    application = create_app(get_settings({}))
+    application = create_test_app()
     application.dependency_overrides[get_anilist_client] = lambda: DetailAniListClient()
 
     with TestClient(application) as client:

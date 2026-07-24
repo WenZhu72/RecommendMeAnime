@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import unicodedata
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -24,6 +23,7 @@ from app.core.exceptions import (
     AniListUnavailableError,
     AniListUpstreamError,
 )
+from app.services.browse_filters import BrowseFilterSet, metadata_filter_key
 
 logger = logging.getLogger(__name__)
 
@@ -152,29 +152,6 @@ def build_page_query_and_variables(
     return query, variables
 
 
-def _normalise_text(value: str | None) -> str | None:
-    if value is None:
-        return None
-    normalised = " ".join(unicodedata.normalize("NFKC", value).strip().split()).casefold()
-    return normalised or None
-
-
-def _normalise_enum(value: str | None) -> str | None:
-    cleaned = _normalise_text(value)
-    return cleaned.upper() if cleaned is not None else None
-
-
-def _normalise_text_list(values: list[str] | None) -> list[str]:
-    return sorted({cleaned for value in (values or []) if (cleaned := _normalise_text(value)) is not None})
-
-
-def _normalise_enum_list(values: list[str] | None, *, preserve_order: bool = False) -> list[str]:
-    cleaned = [normalised for value in (values or []) if (normalised := _normalise_enum(value)) is not None]
-    if preserve_order:
-        return list(dict.fromkeys(cleaned))
-    return sorted(set(cleaned))
-
-
 def build_page_query_identity(
     *,
     search: str | None,
@@ -188,29 +165,23 @@ def build_page_query_identity(
     sort: list[str] | None,
     per_page: int | None = None,
 ) -> str:
-    """Return a deterministic identity for the complete matching result set.
+    """Compatibility wrapper around the central Browse canonical-key helper."""
 
-    ``page`` is deliberately absent and ``per_page`` is accepted only for
-    backwards compatibility; neither changes which AniList media match.
-    """
-
-    del per_page
-    identity = {
-        "schema": 1,
-        "cataloguePolicy": CATALOGUE_POLICY_VERSION,
-        "isAdult": False,
-        "search": _normalise_text(search),
-        "genre": _normalise_text(genre),
-        "genreIn": _normalise_text_list(genre_in),
-        "format": _normalise_enum(anime_format),
-        "formatIn": _normalise_enum_list(format_in),
-        "season": _normalise_enum(season),
-        "seasonYear": season_year,
-        "minimumScore": minimum_score,
-        # Sort order is significant when AniList applies multiple tie-breakers.
-        "sort": _normalise_enum_list(sort, preserve_order=True),
-    }
-    return json.dumps(identity, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    filters = BrowseFilterSet.create(
+        search=search,
+        genres=[value for value in [genre, *(genre_in or [])] if value],
+        anime_format=anime_format,
+        season=season,
+        season_year=season_year,
+        minimum_score=minimum_score,
+        sort=sort,
+        per_page=per_page or 20,
+    )
+    identity = metadata_filter_key(filters)
+    if format_in:
+        normalised_formats = sorted({value.strip().upper() for value in format_in if value.strip()})
+        identity = f"{identity}|formats={','.join(normalised_formats)}"
+    return identity
 
 
 def _identity_hash(identity: str | None) -> str | None:
@@ -776,6 +747,7 @@ class AniListClient:
             season_year=season_year,
             minimum_score=minimum_score,
             sort=sort,
+            per_page=per_page,
         )
         context = _RequestContext(
             operation_name=operation_name,

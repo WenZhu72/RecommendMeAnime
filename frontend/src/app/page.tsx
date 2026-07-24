@@ -89,7 +89,7 @@ function HomeAnimeSection({ anime, kind, loading = false }: HomeAnimeSectionProp
       {loading ? (
         <AnimeGridSkeleton count={10} label={`Loading ${trending ? "trending" : "popular"} anime`} />
       ) : anime ? (
-        <AnimeGrid anime={anime} animateEntrance eagerFirstImage={trending} />
+        <AnimeGrid anime={anime} animateEntrance />
       ) : (
         <ErrorMessage message={`${trending ? "Trending" : "Popular"} titles are unavailable right now. Please try again.`} />
       )}

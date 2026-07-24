@@ -50,7 +50,15 @@ export async function pollForExactBrowsePagination({
   delayMs = BROWSE_PAGINATION_REFRESH_RETRY_DELAY_MS,
   maxAttempts = BROWSE_PAGINATION_REFRESH_MAX_ATTEMPTS,
 }: BrowsePaginationRefreshOptions): Promise<AnimePageInfo | null> {
-  if (initialPageInfo.isExact) return initialPageInfo;
+  const shouldRefresh = (
+    initialPageInfo.verificationStatus === "stale"
+    || (
+      !initialPageInfo.isExact
+      && initialPageInfo.verificationStatus !== "estimated"
+      && initialPageInfo.verificationStatus !== "failed"
+    )
+  );
+  if (!shouldRefresh) return initialPageInfo;
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     // Check once as soon as the client hydrates. Only subsequent checks are
@@ -75,7 +83,11 @@ export async function pollForExactBrowsePagination({
     }
 
     if (signal.aborted || !isCurrentRequest(requestKey)) return null;
-    if (refreshedPageInfo.isExact) return refreshedPageInfo;
+    if (
+      (refreshedPageInfo.isExact && refreshedPageInfo.verificationStatus !== "stale")
+      || refreshedPageInfo.verificationStatus === "estimated"
+      || refreshedPageInfo.verificationStatus === "failed"
+    ) return refreshedPageInfo;
   }
 
   return null;

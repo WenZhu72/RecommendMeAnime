@@ -6,6 +6,7 @@ import {
   buildBrowseAnimePathFromLocation,
   buildBrowseLocation,
   buildBrowsePageLocation,
+  buildBrowsePageInfoPath,
   buildBrowseParametersFromHref,
   buildBrowseRequestKeyFromHref,
   buildBrowseSearchLocation,
@@ -32,6 +33,51 @@ test("the Browse request identity contains search, filters, sort, and pagination
     }),
     "/api/anime/browse?search=Naruto&genre=Action&genre=Adventure&format=TV&season=FALL&season_year=2002&minimum_score=70&sort=top-rated&page=2&per_page=20",
   );
+});
+
+test("the metadata follow-up uses the same filters without requesting anime cards", () => {
+  assert.equal(
+    buildBrowsePageInfoPath({
+      genres: ["Adventure", "Fantasy"],
+      season: "WINTER",
+      seasonYear: 2022,
+      page: 2,
+      perPage: 20,
+    }),
+    "/api/anime/browse/page-info?genre=Adventure&genre=Fantasy&season=WINTER&season_year=2022&page=2&per_page=20",
+  );
+});
+
+test("metadata requests keep sort for backend classification while ordered requests stay distinct", () => {
+  const popularMetadata = buildBrowsePageInfoPath({
+    seasonYear: 2025,
+    sort: "popular",
+    page: 3,
+    perPage: 20,
+  });
+  const trendingMetadata = buildBrowsePageInfoPath({
+    seasonYear: 2025,
+    sort: "trending",
+    page: 3,
+    perPage: 20,
+  });
+  const popularPage = buildBrowseAnimePath({
+    seasonYear: 2025,
+    sort: "popular",
+    page: 3,
+    perPage: 20,
+  });
+  const trendingPage = buildBrowseAnimePath({
+    seasonYear: 2025,
+    sort: "trending",
+    page: 3,
+    perPage: 20,
+  });
+
+  assert.notEqual(popularMetadata, trendingMetadata);
+  assert.notEqual(popularPage, trendingPage);
+  assert.match(popularMetadata, /sort=popular/);
+  assert.match(trendingMetadata, /sort=trending/);
 });
 
 test("different submitted searches have different response identities", () => {

@@ -4,7 +4,6 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 
@@ -29,7 +28,6 @@ import type { RecommendationPreferences } from "@/types/recommendation";
 const DEFAULT_AUTOPLAY_INTERVAL_MS = 6000;
 const MAX_MOMENTUM_STEPS = 5;
 const RENDER_RADIUS = MAX_MOMENTUM_STEPS + 1;
-const IMAGE_PRELOAD_STAGGER_MS = 110;
 
 type HeroCarouselProps = {
   fallbackItems: Anime[];
@@ -50,7 +48,6 @@ export function HeroCarousel({
   const [tabVisible, setTabVisible] = useState(true);
   const [reducedMotion, setReducedMotion] = useState(false);
   const [autoplayEpoch, setAutoplayEpoch] = useState(0);
-  const preloadedImagesRef = useRef(new Map<string, HTMLImageElement>());
 
   const activeIndex = items.length ? wrapCarouselIndex(current, items.length) : 0;
   const reasons = useMemo(
@@ -165,30 +162,6 @@ export function HeroCarousel({
     return () => window.clearInterval(interval);
   }, [autoplayEpoch, autoplayPaused, intervalMs, items.length]);
 
-  useEffect(() => {
-    const timers: number[] = [];
-
-    visibleSlides.forEach(({ anime, relativeIndex }) => {
-      const source = anime.coverImage;
-      if (!source || preloadedImagesRef.current.has(source)) return;
-
-      const delay = Math.max(0, Math.abs(relativeIndex) - 1) * IMAGE_PRELOAD_STAGGER_MS;
-      timers.push(window.setTimeout(() => {
-        if (preloadedImagesRef.current.has(source)) return;
-        const image = new window.Image();
-        image.decoding = "async";
-        image.loading = "eager";
-        image.src = source;
-        preloadedImagesRef.current.set(source, image);
-        void image.decode().catch(() => {
-          // The mounted Next image remains the fallback if eager decoding is unavailable.
-        });
-      }, delay));
-    });
-
-    return () => timers.forEach((timer) => window.clearTimeout(timer));
-  }, [visibleSlides]);
-
   if (!items.length) {
     return (
       <div className="mx-auto w-full max-w-[35rem]" role="status" aria-label="Loading recommendations">
@@ -245,7 +218,7 @@ export function HeroCarousel({
               relativeIndex={relativeIndex}
               visuallyActive={relativeIndex === visualActiveRelative}
               reason={reasons.get(anime.id) ?? "Selected for discovery."}
-              priority={Math.abs(relativeIndex) <= 1}
+              priority={relativeIndex === visualActiveRelative}
               onSelect={() => selectIndex(index)}
             />
           ))}
